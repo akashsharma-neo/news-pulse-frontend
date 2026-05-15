@@ -41,9 +41,11 @@ export default function TabNavigation({ activeTab, onTabChange }: TabNavigationP
     }
   }, []);
 
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     loadTabs();
-  }, [loadTabs]);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   if (loading) {
     return (
@@ -51,7 +53,7 @@ export default function TabNavigation({ activeTab, onTabChange }: TabNavigationP
         {[1, 2, 3, 4, 5].map((i) => (
           <div
             key={i}
-            className="h-9 min-w-[80px] rounded-full bg-gray-200 animate-pulse"
+            className="h-9 min-w-[80px] rounded-full bg-surface-elevated animate-pulse"
           />
         ))}
       </div>
@@ -59,15 +61,15 @@ export default function TabNavigation({ activeTab, onTabChange }: TabNavigationP
   }
 
   return (
-    <div className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide border-b border-gray-100">
+    <div className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide">
       {tabs.map((tab) => (
         <button
           key={tab.slug}
           onClick={() => onTabChange(tab.slug)}
           className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
             activeTab === tab.slug
-              ? "bg-black text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              ? "bg-accent text-white shadow-sm"
+              : "bg-surface-elevated text-muted hover:text-foreground hover:bg-zinc-700/50"
           }`}
         >
           {tab.name}

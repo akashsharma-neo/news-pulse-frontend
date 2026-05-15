@@ -52,7 +52,12 @@ export async function fetchClusters(
   page: number = 1,
   pageSize: number = 20
 ): Promise<PaginatedResponse<TopicCluster>> {
-  const params = new URLSearchParams({ tab, page: String(page), page_size: String(pageSize) });
+  const params = new URLSearchParams({
+    tab,
+    page: String(page),
+    page_size: String(pageSize),
+    ordering: "-primary_article__published_at",
+  });
   const res = await fetch(`${API_BASE}/clusters/?${params}`);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
