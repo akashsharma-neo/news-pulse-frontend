@@ -13,9 +13,10 @@
 # testing
 /coverage
 
-# next.js
+# next.js (includes hundreds of .js.map source maps — never commit)
 /.next/
 /out/
+**/.next/**
 
 # production
 /build
