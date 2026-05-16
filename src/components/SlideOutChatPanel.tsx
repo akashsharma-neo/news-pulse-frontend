@@ -1,13 +1,18 @@
 /**
  * SlideOutChatPanel component.
- * 
+ *
  * A side-panel (or bottom sheet on mobile) that provides a chat interface
  * for users to interact with the AI about the current article context.
  */
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  fetchChatMessages,
+  sendChatMessage,
+  type ChatMessage,
+} from "@/lib/api";
 
 interface SlideOutChatPanelProps {
   isOpen: boolean;
@@ -16,31 +21,52 @@ interface SlideOutChatPanelProps {
 }
 
 export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideOutChatPanelProps) {
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let cancelled = false;
+
+    const loadHistory = async () => {
+      setIsLoadingHistory(true);
+      setError(null);
+      try {
+        const history = await fetchChatMessages(articleId);
+        if (!cancelled) setMessages(history);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load chat history");
+        }
+      } finally {
+        if (!cancelled) setIsLoadingHistory(false);
+      }
+    };
+
+    loadHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, articleId]);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isLoading) return;
 
-    const userMessage: { role: "user"; content: string } = { role: "user", content: input };
-    setMessages((prev) => [...prev, userMessage]);
+    const content = input.trim();
     setInput("");
     setIsLoading(true);
+    setError(null);
 
     try {
-      // In 3.1 we will implement the actual API call
-      // For now, simulate a response
-      setTimeout(() => {
-        const aiResponse: { role: "assistant"; content: string } = {
-          role: "assistant",
-          content: `I am processing your question about article ${articleId}. The real chat API is coming in task 3.1!`,
-        };
-        setMessages((prev) => [...prev, aiResponse]);
-        setIsLoading(false);
-      }, 1000);
-    } catch (error) {
-      console.error("Failed to send message:", error);
+      const { user_message, assistant_message } = await sendChatMessage(articleId, content);
+      setMessages((prev) => [...prev, user_message, assistant_message]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send message");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -67,13 +93,16 @@ export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideO
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 && (
+          {isLoadingHistory && (
+            <p className="text-center text-sm text-muted mt-10">Loading conversation...</p>
+          )}
+          {!isLoadingHistory && messages.length === 0 && (
             <p className="text-center text-sm text-muted mt-10">
               Ask anything about this article!
             </p>
           )}
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+          {messages.map((msg) => (
+            <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               <div
                 className={`max-w-[85%] p-3 rounded-2xl text-sm ${
                   msg.role === "user"
@@ -96,6 +125,11 @@ export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideO
 
         {/* Input */}
         <div className="p-4 border-t border-border-subtle bg-surface">
+          {error && (
+            <p className="text-sm text-red-400 mb-2" role="alert">
+              {error}
+            </p>
+          )}
           <div className="flex gap-2">
             <input
               type="text"
@@ -103,7 +137,8 @@ export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideO
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               placeholder="Type a message..."
-              className="flex-1 bg-zinc-800 text-foreground placeholder:text-muted border-none rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-accent transition-all outline-none"
+              disabled={isLoading}
+              className="flex-1 bg-zinc-800 text-foreground placeholder:text-muted border-none rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-accent transition-all outline-none disabled:opacity-50"
             />
             <button
               onClick={handleSend}

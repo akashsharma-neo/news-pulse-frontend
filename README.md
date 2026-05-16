@@ -20,7 +20,14 @@ npm install
 npm run dev
 ```
 
-API base URL: `NEXT_PUBLIC_API_URL` (default `http://localhost:8000/api`).
+Environment: copy `config/env.dev.example` to `.env.local` (default `NEWSMINE_ENV=dev`).
+
+| Variable | Dev default |
+|----------|-------------|
+| `NEXT_PUBLIC_NEWSMINE_ENV` | `dev` |
+| `NEXT_PUBLIC_API_URL` | `http://127.0.0.1:8000/api` |
+
+See `news-pulse-backend/docs/environments.md` for backend + Docker setup.
 
 ## Production build
 

@@ -13,6 +13,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+ARG NEXT_PUBLIC_NEWSMINE_ENV=dev
+ARG NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api
+ENV NEXT_PUBLIC_NEWSMINE_ENV=$NEXT_PUBLIC_NEWSMINE_ENV
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.

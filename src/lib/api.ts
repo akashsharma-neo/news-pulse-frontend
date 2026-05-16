@@ -5,7 +5,10 @@
  * All endpoints are typed with simple interfaces.
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+import { apiBaseUrl } from "@/lib/env";
+import { authHeaders, ensureAccessToken } from "@/lib/auth";
+
+const API_BASE = apiBaseUrl;
 
 export interface Tab {
   id: number;
@@ -92,5 +95,60 @@ export async function fetchArticles(
   const params = new URLSearchParams({ tab, page: String(page), page_size: String(pageSize) });
   const res = await fetch(`${API_BASE}/articles/?${params}`);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+export interface ChatMessage {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+
+export interface SendChatMessageResponse {
+  user_message: ChatMessage;
+  assistant_message: ChatMessage;
+}
+
+async function parseApiError(res: Response): Promise<string> {
+  try {
+    const data = await res.json();
+    if (data && typeof data.error === "string") return data.error;
+  } catch {
+    // ignore JSON parse errors
+  }
+  return `API error: ${res.status}`;
+}
+
+/**
+ * Fetch chat messages for a cluster thread.
+ * clusterId is the numeric TopicCluster PK.
+ */
+export async function fetchChatMessages(clusterId: number): Promise<ChatMessage[]> {
+  const token = await ensureAccessToken();
+  const params = new URLSearchParams({ cluster_id: String(clusterId) });
+  const res = await fetch(`${API_BASE}/messages/?${params}`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new Error(await parseApiError(res));
+  const data = await res.json();
+  return Array.isArray(data) ? data : data.results ?? [];
+}
+
+/**
+ * Send a user message and receive the assistant reply from OpenRouter.
+ * clusterId is the numeric TopicCluster PK.
+ */
+export async function sendChatMessage(
+  clusterId: number,
+  content: string
+): Promise<SendChatMessageResponse> {
+  const token = await ensureAccessToken();
+  const res = await fetch(`${API_BASE}/messages/send/`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ cluster_id: clusterId, content }),
+  });
+  if (!res.ok) throw new Error(await parseApiError(res));
   return res.json();
 }
