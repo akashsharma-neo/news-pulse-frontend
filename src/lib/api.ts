@@ -27,6 +27,7 @@ export interface TopicCluster {
   published_at: string;
   summary: string;
   source_names: string[];
+  image_url: string;
   created_at: string;
 }
 
@@ -38,6 +39,7 @@ export interface Article {
   category_slug: string;
   published_at: string;
   summary: string;
+  source_image_url: string;
 }
 
 export interface PaginatedResponse<T> {

@@ -9,6 +9,7 @@
 
 import { TopicCluster } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
+import StoryImage from "@/components/StoryImage";
 
 interface HeadlineCardProps {
   cluster: TopicCluster;
@@ -39,13 +40,22 @@ export default function HeadlineCard({ cluster }: HeadlineCardProps) {
     addSuffix: true,
   });
 
-  const summaryPreview = truncateWords(cluster.summary, 12);
+  const summaryPreview = truncateWords(cluster.summary, 60);
 
   return (
     <article
       className="p-4 mb-3 rounded-2xl bg-surface border border-border-subtle hover:bg-zinc-800/40 transition-colors cursor-pointer"
       onClick={() => (window.location.href = `/article/${cluster.id}`)}
     >
+      {cluster.image_url && (
+        <StoryImage
+          src={cluster.image_url}
+          alt={cluster.primary_title}
+          className="mb-3"
+          aspectClass="aspect-video"
+        />
+      )}
+
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xs font-semibold text-muted uppercase tracking-wide">
           {cluster.source_name}

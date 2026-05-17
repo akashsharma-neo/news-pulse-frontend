@@ -12,6 +12,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import SlideOutChatPanel from "@/components/SlideOutChatPanel";
+import StoryImage from "@/components/StoryImage";
+import { sanitizePlainText } from "@/lib/utils";
 
 export default function ArticleDetailPage() {
   const params = useParams();
@@ -20,12 +22,20 @@ export default function ArticleDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  useEffect(() => {
-    if (!params.id) return;
+  const isValidId = typeof params.id === 'string' && !isNaN(Number(params.id));
 
+  useEffect(() => {
+    if (!isValidId) {
+      setTimeout(() => setLoading(false), 0);
+      return;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoading(true);
+
+    const id = Number(params.id);
     const loadData = async () => {
       try {
-        const data = await fetchCluster(Number(params.id));
+        const data = await fetchCluster(id);
         setCluster(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load article");
@@ -35,7 +45,7 @@ export default function ArticleDetailPage() {
     };
 
     loadData();
-  }, [params.id]);
+  }, [params.id, isValidId]);
 
   if (loading) {
     return (
@@ -48,10 +58,10 @@ export default function ArticleDetailPage() {
   if (error || !cluster) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-background px-4">
-        <p className="text-lg font-medium text-foreground">{error || "Article not found"}</p>
-        <Link href="/" className="text-accent hover:underline">
-          Back to feed
-        </Link>
+        <p className="text-lg font-medium text-foreground">
+          {!isValidId ? "Invalid or missing article identifier" : (error || "Article not found")}
+        </p>
+        <Link href="/" className="text-accent hover:underline">Back to feed</Link>
       </div>
     );
   }
@@ -70,10 +80,19 @@ export default function ArticleDetailPage() {
       </div>
 
       <article className="p-6">
+        {cluster.image_url && (
+          <StoryImage
+            src={cluster.image_url}
+            alt={cluster.primary_title}
+            className="mb-6"
+            aspectClass="aspect-[2/1]"
+          />
+        )}
+
         {/* Header info */}
         <div className="flex items-center gap-2 mb-4">
           <span className="text-xs font-semibold text-muted uppercase tracking-wide">
-            {cluster.source_name}
+            {sanitizePlainText(cluster.source_name)}
           </span>
           <span className="text-zinc-600">·</span>
           <time className="text-xs text-muted">{timeAgo}</time>
@@ -115,7 +134,7 @@ export default function ArticleDetailPage() {
             onClick={() => setIsChatOpen(true)}
           >
             <span className="text-lg">💬</span>
-            Ask AI about this story
+            Want more? Just Ask
           </button>
         </div>
       </article>

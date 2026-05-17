@@ -22,10 +22,13 @@ npm run dev
 
 Environment: copy `config/env.dev.example` to `.env.local` (default `NEWSMINE_ENV=dev`).
 
+Use the same hostname as `NEWSMINE_DEV_HOST` in `news-pulse-backend/.env`. Run `../scripts/dev-host.sh` for suggested values (mDNS for phone/LAN).
+
 | Variable | Dev default |
 |----------|-------------|
 | `NEXT_PUBLIC_NEWSMINE_ENV` | `dev` |
-| `NEXT_PUBLIC_API_URL` | `http://127.0.0.1:8000/api` |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8000/api` (or `http://YourMac.local:8000/api`) |
+| `ALLOWED_DEV_ORIGINS` | Hostname only, for phone HMR (e.g. `YourMac.local`) |
 
 See `news-pulse-backend/docs/environments.md` for backend + Docker setup.
 
