@@ -12,6 +12,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import SlideOutChatPanel from "@/components/SlideOutChatPanel";
+import ShareButton from "@/components/ShareButton";
 import StoryImage from "@/components/StoryImage";
 import { sanitizePlainText, stripHtmlToPlainText } from "@/lib/utils";
 
@@ -107,9 +108,12 @@ export default function ArticleDetailPage() {
   return (
     <main className="max-w-2xl mx-auto min-h-screen bg-background pb-20">
       <div className="p-4 border-b border-border-subtle bg-surface">
-        <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">
-          ← Back to Feed
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">
+            ← Back to Feed
+          </Link>
+          <ShareButton path={`/article/${cluster.id}`} title={cluster.primary_title} />
+        </div>
       </div>
 
       <article className="p-6">

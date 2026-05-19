@@ -1,8 +1,8 @@
 /**
  * HeadlineCard component.
  *
- * Horizontal card layout — image on the left, article text on the right.
- * Text is truncated via CSS line-clamp to fit the tile.
+ * Card showing a topic cluster as a news headline.
+ * Displays image, title, ~60-word summary, source attribution, and timestamp.
  */
 
 "use client";
@@ -11,6 +11,7 @@ import { TopicCluster } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import StoryImage from "@/components/StoryImage";
 import { stripHtmlToPlainText } from "@/lib/utils";
+import ShareButton from "@/components/ShareButton";
 
 interface HeadlineCardProps {
   cluster: TopicCluster;
@@ -35,50 +36,48 @@ export default function HeadlineCard({ cluster }: HeadlineCardProps) {
     addSuffix: true,
   });
 
-  const summaryPreview = truncateWords(stripHtmlToPlainText(cluster.summary), 35);
+  const summaryPreview = truncateWords(stripHtmlToPlainText(cluster.summary), 20);
+  const isSummaryTruncated = summaryPreview.endsWith("...");
 
   return (
     <article
-      className="p-3 mb-3 rounded-2xl bg-surface border border-border-subtle hover:bg-zinc-800/40 transition-colors cursor-pointer"
+      className="p-4 mb-3 rounded-2xl bg-surface border border-border-subtle hover:bg-zinc-800/40 transition-colors cursor-pointer"
       onClick={() => (window.location.href = `/article/${cluster.id}`)}
     >
-      <div className="flex gap-3">
-        {cluster.image_url && (
-          <div className="w-24 md:w-32 shrink-0">
-            <StoryImage
-              src={cluster.image_url}
-              alt={cluster.primary_title}
-              aspectClass="aspect-square"
-            />
-          </div>
+      {cluster.image_url && (
+        <StoryImage
+          src={cluster.image_url}
+          alt={cluster.primary_title}
+          className="mb-3"
+          aspectClass="aspect-video"
+        />
+      )}
+
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-[10px] font-semibold text-muted uppercase tracking-wide">
+          {cluster.source_name}
+        </span>
+        <span className="text-zinc-600">·</span>
+        <time className="text-[10px] text-muted">{timeAgo}</time>
+      </div>
+
+      <h2 className="text-base font-bold text-foreground leading-snug mb-1">
+        {cluster.primary_title}
+      </h2>
+
+      <p className="text-xs text-muted leading-relaxed">
+        {summaryPreview}
+        {isSummaryTruncated && <span className="text-accent"> more</span>}
+      </p>
+
+      <div className="mt-1.5 flex items-center justify-between">
+        {cluster.source_names.length > 1 && (
+          <span className="text-[10px] text-muted/80">
+            +{cluster.source_names.length - 1} more source
+            {cluster.source_names.length > 2 ? "s" : ""}
+          </span>
         )}
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold text-muted uppercase tracking-wide">
-              {cluster.source_name}
-            </span>
-            <span className="text-zinc-600">·</span>
-            <time className="text-xs text-muted">{timeAgo}</time>
-          </div>
-
-          <h2 className="text-base font-bold text-foreground leading-snug mb-1 line-clamp-2">
-            {cluster.primary_title}
-          </h2>
-
-          <p className="text-sm text-muted leading-relaxed line-clamp-3">
-            {summaryPreview}
-          </p>
-
-          {cluster.source_names.length > 1 && (
-            <div className="mt-1 flex items-center gap-1">
-              <span className="text-xs text-muted/80">
-                +{cluster.source_names.length - 1} more source
-                {cluster.source_names.length > 2 ? "s" : ""}
-              </span>
-            </div>
-          )}
-        </div>
+        <ShareButton path={`/article/${cluster.id}`} title={cluster.primary_title} />
       </div>
     </article>
   );

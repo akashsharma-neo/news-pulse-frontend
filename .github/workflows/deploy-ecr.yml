@@ -1,17 +1,20 @@
+# Build and push web image to ECR when changes land on main (e.g. merge PR dev → main).
+# Does not run on pushes to dev or other branches.
 name: Build and push web to ECR
 
 on:
   push:
     branches: [main]
-    paths:
-      - '**'
-      - '.github/workflows/deploy-ecr.yml'
   workflow_dispatch:
     inputs:
       image_tag:
-        description: 'Image tag (default: git sha)'
+        description: 'Image tag (default: commit SHA on main)'
         required: false
         type: string
+
+concurrency:
+  group: ecr-web-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
@@ -19,11 +22,18 @@ env:
 
 jobs:
   build-web:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -31,6 +41,15 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Ensure ECR repository exists
+        run: |
+          if ! aws ecr describe-repositories --repository-names "${{ env.ECR_WEB_REPO }}" --region "${{ env.AWS_REGION }}" 2>/dev/null; then
+            aws ecr create-repository \
+              --repository-name "${{ env.ECR_WEB_REPO }}" \
+              --region "${{ env.AWS_REGION }}" \
+              --image-scanning-configuration scanOnPush=true
+          fi
 
       - name: Login to Amazon ECR
         id: ecr
@@ -47,12 +66,13 @@ jobs:
           fi
           TAG="${{ github.event.inputs.image_tag }}"
           if [[ -z "$TAG" ]]; then TAG="${{ github.sha }}"; fi
+          REGISTRY="${{ steps.ecr.outputs.registry }}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "api_url=${NEXT_PUBLIC_API_URL}" >> "$GITHUB_OUTPUT"
-          ACCOUNT="${{ steps.ecr.outputs.registry }}"
-          echo "web_image=${ACCOUNT}/${{ env.ECR_WEB_REPO }}:${TAG}" >> "$GITHUB_OUTPUT"
+          echo "web_image=${REGISTRY}/${{ env.ECR_WEB_REPO }}:${TAG}" >> "$GITHUB_OUTPUT"
+          echo "web_latest=${REGISTRY}/${{ env.ECR_WEB_REPO }}:latest" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push frontend image
+      - name: Build and push frontend image (linux/arm64)
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -62,8 +82,12 @@ jobs:
             NEXT_PUBLIC_API_URL=${{ steps.meta.outputs.api_url }}
           tags: |
             ${{ steps.meta.outputs.web_image }}
-            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_WEB_REPO }}:latest
+            ${{ steps.meta.outputs.web_latest }}
           platforms: linux/arm64
+          provenance: false
 
-      - name: Image summary
-        run: echo "Pushed ${{ steps.meta.outputs.web_image }}"
+      - name: Summary
+        run: |
+          echo "### Web image pushed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ steps.meta.outputs.web_image }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ steps.meta.outputs.web_latest }}\`" >> "$GITHUB_STEP_SUMMARY"
