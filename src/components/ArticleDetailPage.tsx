@@ -1,28 +1,55 @@
 /**
  * ArticleDetailPage — The full view of a news story cluster.
  *
- * Displays summary, source information, and provides access to the chat interface.
+ * Displays summary, source information, related stories, and chat access.
  */
 
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchCluster, TopicCluster } from "@/lib/api";
+import { fetchCluster, fetchRelatedClusters, TopicCluster } from "@/lib/api";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import SlideOutChatPanel from "@/components/SlideOutChatPanel";
 import StoryImage from "@/components/StoryImage";
-import { sanitizePlainText } from "@/lib/utils";
+import { sanitizePlainText, stripHtmlToPlainText } from "@/lib/utils";
+
+function RelatedStoryRow({ item }: { item: TopicCluster }) {
+  const timeAgo = formatDistanceToNow(
+    new Date(item.published_at || item.created_at),
+    { addSuffix: true }
+  );
+
+  return (
+    <Link
+      href={`/article/${item.id}`}
+      className="block p-4 rounded-xl bg-surface border border-border-subtle hover:bg-zinc-800/40 transition-colors"
+    >
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-xs font-semibold text-muted uppercase tracking-wide">
+          {sanitizePlainText(item.source_name)}
+        </span>
+        <span className="text-zinc-600">·</span>
+        <time className="text-xs text-muted">{timeAgo}</time>
+      </div>
+      <h3 className="text-base font-semibold text-foreground leading-snug">
+        {item.primary_title}
+      </h3>
+    </Link>
+  );
+}
 
 export default function ArticleDetailPage() {
   const params = useParams();
   const [cluster, setCluster] = useState<TopicCluster | null>(null);
+  const [related, setRelated] = useState<TopicCluster[]>([]);
   const [loading, setLoading] = useState(true);
+  const [relatedLoading, setRelatedLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  const isValidId = typeof params.id === 'string' && !isNaN(Number(params.id));
+  const isValidId = typeof params.id === "string" && !isNaN(Number(params.id));
 
   useEffect(() => {
     if (!isValidId) {
@@ -31,16 +58,22 @@ export default function ArticleDetailPage() {
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
+    setRelatedLoading(true);
 
     const id = Number(params.id);
     const loadData = async () => {
       try {
-        const data = await fetchCluster(id);
+        const [data, relatedItems] = await Promise.all([
+          fetchCluster(id),
+          fetchRelatedClusters(id),
+        ]);
         setCluster(data);
+        setRelated(relatedItems);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load article");
       } finally {
         setLoading(false);
+        setRelatedLoading(false);
       }
     };
 
@@ -69,10 +102,10 @@ export default function ArticleDetailPage() {
   const timeAgo = formatDistanceToNow(new Date(cluster.published_at), {
     addSuffix: true,
   });
+  const summaryText = stripHtmlToPlainText(cluster.summary);
 
   return (
     <main className="max-w-2xl mx-auto min-h-screen bg-background pb-20">
-      {/* Back button */}
       <div className="p-4 border-b border-border-subtle bg-surface">
         <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">
           ← Back to Feed
@@ -89,7 +122,6 @@ export default function ArticleDetailPage() {
           />
         )}
 
-        {/* Header info */}
         <div className="flex items-center gap-2 mb-4">
           <span className="text-xs font-semibold text-muted uppercase tracking-wide">
             {sanitizePlainText(cluster.source_name)}
@@ -98,19 +130,26 @@ export default function ArticleDetailPage() {
           <time className="text-xs text-muted">{timeAgo}</time>
         </div>
 
-        {/* Title */}
         <h1 className="text-2xl md:text-3xl font-bold text-foreground leading-tight mb-6">
           {cluster.primary_title}
         </h1>
 
-        {/* Summary Section */}
         <div className="mb-8">
-          <p className="text-lg text-muted leading-relaxed">
-            {cluster.summary}
+          <p className="text-lg text-muted leading-relaxed whitespace-pre-wrap">
+            {summaryText}
           </p>
+          {cluster.primary_url && (
+            <a
+              href={cluster.primary_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-4 text-sm font-medium text-accent hover:underline"
+            >
+              More at {sanitizePlainText(cluster.source_name)}
+            </a>
+          )}
         </div>
 
-        {/* Sources Section */}
         <div className="border-t border-border-subtle pt-6 mb-8">
           <h3 className="text-sm font-semibold text-foreground mb-4 uppercase tracking-wider">
             Sources contributing to this story
@@ -127,7 +166,6 @@ export default function ArticleDetailPage() {
           </div>
         </div>
 
-        {/* Action: Chat Button */}
         <div className="sticky bottom-4 mt-auto">
           <button
             className="w-full bg-accent text-white font-medium py-4 rounded-2xl shadow-lg hover:opacity-90 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
@@ -139,10 +177,29 @@ export default function ArticleDetailPage() {
         </div>
       </article>
 
-      <SlideOutChatPanel 
-        isOpen={isChatOpen} 
-        onClose={() => setIsChatOpen(false)} 
-        articleId={Number(params.id)} 
+      <section className="px-6 pb-8">
+        <h2 className="text-sm font-semibold text-foreground mb-4 uppercase tracking-wider">
+          More news
+        </h2>
+        {relatedLoading ? (
+          <div className="flex justify-center py-6">
+            <div className="w-6 h-6 border-2 border-zinc-600 border-t-accent rounded-full animate-spin" />
+          </div>
+        ) : related.length === 0 ? (
+          <p className="text-sm text-muted">No related stories right now.</p>
+        ) : (
+          <div className="space-y-3">
+            {related.map((item) => (
+              <RelatedStoryRow key={item.id} item={item} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <SlideOutChatPanel
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        articleId={Number(params.id)}
       />
     </main>
   );

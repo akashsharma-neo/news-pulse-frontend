@@ -32,6 +32,7 @@ export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideO
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const startTimeRef = useRef<number | null>(null);
+  const lastSentContentRef = useRef<string>("");
   const isTimedOut = elapsedTime >= TIMEOUT_SECONDS;
 
   useEffect(() => {
@@ -92,28 +93,44 @@ export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideO
     };
   }, [isLoading]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
-
-    const content = input.trim();
-    setInput("");
-    setIsLoading(true);
+  const performSend = async (content: string) => {
     setError(null);
+    lastSentContentRef.current = content;
+
+    const tempId = Date.now();
+    const optimisticMessage: ChatMessage = {
+      id: tempId,
+      role: "user",
+      content,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setIsLoading(true);
 
     try {
       const { user_message, assistant_message } = await sendChatMessage(articleId, content);
-      setMessages((prev) => [...prev, user_message, assistant_message]);
+      setMessages((prev) =>
+        prev.filter((msg) => msg.id !== tempId).concat([user_message, assistant_message])
+      );
     } catch (err) {
+      setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
       setError(err instanceof Error ? err.message : "Failed to send message");
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleSend = () => {
+    if (!input.trim() || isLoading) return;
+    const content = input.trim();
+    setInput("");
+    performSend(content);
+  };
+
   const handleRetry = () => {
     setError(null);
-    if (input.trim()) {
-      handleSend();
+    if (lastSentContentRef.current) {
+      performSend(lastSentContentRef.current);
     }
   };
 
@@ -207,11 +224,9 @@ export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideO
                       <div className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                       <div className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                     </div>
-                    {elapsedTime > 5 && (
-                      <span className="text-xs text-muted ml-1">
-                        {elapsedTime}s
-                      </span>
-                    )}
+                    <span className="text-xs text-muted">
+                      thinking and searching{elapsedTime > 5 && ` (${elapsedTime}s)`}...
+                    </span>
                   </div>
                 )}
               </div>

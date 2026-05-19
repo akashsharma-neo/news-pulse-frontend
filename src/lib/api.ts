@@ -78,6 +78,19 @@ export async function fetchCluster(id: number): Promise<TopicCluster> {
 }
 
 /**
+ * Fetch related clusters for the detail page (same tab, excludes current).
+ */
+export async function fetchRelatedClusters(
+  id: number,
+  limit: number = 8
+): Promise<TopicCluster[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  const res = await fetch(`${API_BASE}/clusters/${id}/related/?${params}`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+/**
  * Fetch all available tabs.
  */
 export async function fetchTabs(): Promise<Tab[]> {
