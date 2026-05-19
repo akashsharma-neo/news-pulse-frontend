@@ -11,6 +11,7 @@ import { TopicCluster } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import StoryImage from "@/components/StoryImage";
 import { stripHtmlToPlainText } from "@/lib/utils";
+import ShareButton from "@/components/ShareButton";
 
 interface HeadlineCardProps {
   cluster: TopicCluster;
@@ -69,14 +70,15 @@ export default function HeadlineCard({ cluster }: HeadlineCardProps) {
         {isSummaryTruncated && <span className="text-accent"> more</span>}
       </p>
 
-      {cluster.source_names.length > 1 && (
-        <div className="mt-1.5 flex items-center gap-1">
+      <div className="mt-1.5 flex items-center justify-between">
+        {cluster.source_names.length > 1 && (
           <span className="text-[10px] text-muted/80">
             +{cluster.source_names.length - 1} more source
             {cluster.source_names.length > 2 ? "s" : ""}
           </span>
-        </div>
-      )}
+        )}
+        <ShareButton path={`/article/${cluster.id}`} title={cluster.primary_title} />
+      </div>
     </article>
   );
 }
