@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { SearchResult } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import { stripHtmlToPlainText } from "@/lib/utils";
@@ -41,10 +42,10 @@ export default function SearchResults({ results, query, loading, totalCount, onL
         const timeAgo = formatDistanceToNow(new Date(article.published_at), { addSuffix: true });
         const preview = truncateWords(stripHtmlToPlainText(article.summary || article.headline), 25);
         return (
-          <article
+          <Link
             key={article.id}
-            className="p-4 mb-3 rounded-2xl bg-surface border border-border-subtle hover:bg-zinc-800/40 transition-colors cursor-pointer"
-            onClick={() => window.open(article.url, "_blank", "noopener noreferrer")}
+            href={`/article/${article.cluster_id}`}
+            className="block p-4 mb-3 rounded-2xl bg-surface border border-border-subtle hover:bg-zinc-800/40 transition-colors"
           >
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-[10px] font-semibold text-muted uppercase tracking-wide">
@@ -59,7 +60,7 @@ export default function SearchResults({ results, query, loading, totalCount, onL
             </h2>
 
             <p className="text-xs text-muted leading-relaxed">{preview}</p>
-          </article>
+          </Link>
         );
       })}
 

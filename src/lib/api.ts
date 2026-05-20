@@ -77,6 +77,7 @@ export class QuotaExceededError extends Error {
 
 export interface SearchResult {
   id: number;
+  cluster_id: number;
   title: string;
   url: string;
   source_name: string;
