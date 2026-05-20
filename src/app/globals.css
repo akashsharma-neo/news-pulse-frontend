@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /**
- * Default dark theme (NewsPulse). Tokens align with the in-app feed/detail UI.
+ * Default dark theme (NewsMine). Tokens align with the in-app feed/detail UI.
  */
 :root {
   --background: #121212;
@@ -10,7 +10,7 @@
   --foreground: #ffffff;
   --muted: #a0a0a0;
   --border-subtle: rgba(255, 255, 255, 0.08);
-  --accent: #007aff;
+  --accent: #3E5641;
 }
 
 @theme inline {

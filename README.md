@@ -1,6 +1,6 @@
-# NewsPulse frontend
+# NewsMine frontend
 
-Next.js app for the NewsPulse tab feed (topic cluster digests from the Django API).
+Next.js app for the NewsMine tab feed (topic cluster digests from the Django API).
 
 ## Open the correct folder in your editor
 

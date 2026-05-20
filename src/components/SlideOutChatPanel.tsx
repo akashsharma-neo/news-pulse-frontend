@@ -1,28 +1,35 @@
 /**
  * SlideOutChatPanel component.
  *
- * A side-panel (or bottom sheet on mobile) that provides a chat interface
- * for users to interact with the AI about the current article context.
+ * Side panel (bottom sheet on mobile) for Nex — tap suggestions or type a question.
  */
 
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import {
   fetchChatMessages,
   sendChatMessage,
   type ChatMessage,
 } from "@/lib/api";
+import { resolveNexPrompts } from "@/lib/nexPrompts";
+import NexSuggestionChips from "@/components/NexSuggestionChips";
 
 interface SlideOutChatPanelProps {
   isOpen: boolean;
   onClose: () => void;
   articleId: number;
+  suggestedPrompts?: string[];
 }
 
 const TIMEOUT_SECONDS = 20;
 
-export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideOutChatPanelProps) {
+export default function SlideOutChatPanel({
+  isOpen,
+  onClose,
+  articleId,
+  suggestedPrompts,
+}: SlideOutChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -35,35 +42,37 @@ export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideO
   const lastSentContentRef = useRef<string>("");
   const isTimedOut = elapsedTime >= TIMEOUT_SECONDS;
 
+  const nexPrompts = useMemo(
+    () => resolveNexPrompts(suggestedPrompts),
+    [suggestedPrompts]
+  );
+
+  const showSuggestions =
+    !isLoadingHistory && messages.length === 0 && !isLoading;
+
+  const loadHistory = useCallback(async () => {
+    setIsLoadingHistory(true);
+    setError(null);
+    try {
+      const history = await fetchChatMessages(articleId);
+      setMessages(history);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load chat history");
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [articleId]);
+
   useEffect(() => {
     if (!isOpen) return;
-
-    let cancelled = false;
-
-    const loadHistory = async () => {
-      setIsLoadingHistory(true);
-      setError(null);
-      try {
-        const history = await fetchChatMessages(articleId);
-        if (!cancelled) setMessages(history);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load chat history");
-        }
-      } finally {
-        if (!cancelled) setIsLoadingHistory(false);
-      }
-    };
-
-    loadHistory();
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen, articleId]);
+    (async () => {
+      await loadHistory();
+    })();
+  }, [isOpen, loadHistory]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, showSuggestions]);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -127,10 +136,16 @@ export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideO
     performSend(content);
   };
 
+  const handleSuggestionSelect = (question: string) => {
+    if (isLoading) return;
+    performSend(question);
+  };
+
   const handleRetry = () => {
-    setError(null);
     if (lastSentContentRef.current) {
       performSend(lastSentContentRef.current);
+    } else {
+      void loadHistory();
     }
   };
 
@@ -143,21 +158,18 @@ export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideO
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/50 z-40 transition-opacity"
         onClick={onClose}
       />
 
-      {/* Panel */}
       <div className="fixed bottom-0 right-0 left-0 md:left-auto md:top-0 md:bottom-auto md:w-[400px] md:h-[calc(100vh-64px)] md:top-[64px] bg-surface z-50 shadow-2xl flex flex-col transition-transform duration-300 ease-in-out border-t md:border-l md:border-t-0 border-border-subtle rounded-t-2xl md:rounded-none max-h-[85vh] md:max-h-none">
-        {/* Header */}
         <div className="p-4 border-b border-border-subtle flex items-center justify-between bg-surface-elevated shrink-0">
-          <h3 className="font-bold text-foreground">Chat with AI</h3>
-          <button 
-            onClick={onClose} 
+          <h3 className="font-bold text-foreground">Nex</h3>
+          <button
+            onClick={onClose}
             className="text-muted hover:text-foreground p-2 rounded-lg transition-colors"
-            aria-label="Close chat"
+            aria-label="Close Nex chat"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -166,27 +178,29 @@ export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideO
           </button>
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
           {isLoadingHistory && (
             <div className="flex justify-center py-8">
               <div className="flex items-center gap-2 text-muted">
-                <div className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <div className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></div>
+                <div className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></div>
+                <div className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></div>
               </div>
             </div>
           )}
-          {!isLoadingHistory && messages.length === 0 && !isLoading && (
-            <div className="text-center py-8">
-              <p className="text-sm text-muted mb-2">
-                Ask anything about this article!
-              </p>
-              <p className="text-xs text-muted/60">
-                AI usually replies in a few seconds
-              </p>
+
+          {showSuggestions && (
+            <div className="pb-2">
+              <h4 className="text-sm font-semibold text-foreground mb-1">Ask Nex</h4>
+              <p className="text-xs text-muted mb-4">Picked for this story</p>
+              <NexSuggestionChips
+                prompts={nexPrompts}
+                onSelect={handleSuggestionSelect}
+                disabled={isLoading}
+              />
             </div>
           )}
+
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               <div
@@ -200,8 +214,7 @@ export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideO
               </div>
             </div>
           ))}
-          
-          {/* Loading / Thinking State */}
+
           {isLoading && (
             <div className="flex justify-start">
               <div className="bg-surface-elevated border border-border-subtle p-3 rounded-2xl rounded-tl-none">
@@ -220,12 +233,12 @@ export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideO
                 ) : (
                   <div className="flex items-center gap-2">
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                      <div className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      <div className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></div>
+                      <div className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></div>
+                      <div className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></div>
                     </div>
                     <span className="text-xs text-muted">
-                      thinking and searching{elapsedTime > 5 && ` (${elapsedTime}s)`}...
+                      Nex is thinking{elapsedTime > 5 && ` (${elapsedTime}s)`}...
                     </span>
                   </div>
                 )}
@@ -235,7 +248,6 @@ export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideO
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
         <div className="p-4 border-t border-border-subtle bg-surface shrink-0">
           {error && (
             <div className="flex items-center justify-between mb-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
@@ -257,7 +269,7 @@ export default function SlideOutChatPanel({ isOpen, onClose, articleId }: SlideO
               value={input}
               onChange={handleInputChange}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-              placeholder="Ask something..."
+              placeholder="Ask Nex anything..."
               disabled={isLoading}
               className="flex-1 bg-zinc-800 text-foreground placeholder:text-muted border-none rounded-full px-4 py-2.5 text-sm focus:ring-2 focus:ring-accent transition-all outline-none disabled:opacity-50"
             />

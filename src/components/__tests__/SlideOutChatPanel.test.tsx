@@ -50,14 +50,31 @@ describe("SlideOutChatPanel", () => {
       mockFetchChatMessages.mockReturnValue(new Promise(() => {}));
       renderPanel();
       await waitFor(() => {
-        expect(screen.queryByText(/ask anything about this article/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/ask nex/i)).not.toBeInTheDocument();
       });
     });
 
-    it("shows empty state when no messages exist", async () => {
+    it("shows Nex suggestions when no messages exist", async () => {
       mockFetchChatMessages.mockResolvedValue([]);
-      renderPanel();
-      expect(await screen.findByText(/ask anything about this article/i)).toBeInTheDocument();
+      renderPanel({
+        suggestedPrompts: [
+          "What are the main facts?",
+          "Who is affected?",
+          "What happens next?",
+        ],
+      });
+      expect(await screen.findByText("Ask Nex")).toBeInTheDocument();
+      expect(screen.getByText("Picked for this story")).toBeInTheDocument();
+      expect(screen.getByText("What are the main facts?")).toBeInTheDocument();
+    });
+
+    it("hides suggestions when chat history exists", async () => {
+      mockFetchChatMessages.mockResolvedValue(mockMessages);
+      renderPanel({
+        suggestedPrompts: ["What are the main facts?", "Who is affected?", "What happens next?"],
+      });
+      await screen.findByText("Hello! Ask me anything.");
+      expect(screen.queryByText("Picked for this story")).not.toBeInTheDocument();
     });
 
     it("renders fetched messages", async () => {
@@ -84,7 +101,7 @@ describe("SlideOutChatPanel", () => {
       mockSendChatMessage.mockReturnValue(new Promise(() => {}));
       renderPanel();
 
-      const input = await screen.findByPlaceholderText("Ask something...");
+      const input = await screen.findByPlaceholderText("Ask Nex anything...");
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       await user.type(input, "Tell me more");
       await user.click(screen.getByLabelText("Send message"));
@@ -97,7 +114,7 @@ describe("SlideOutChatPanel", () => {
       mockSendChatMessage.mockReturnValue(new Promise(() => {}));
       renderPanel();
 
-      const input = await screen.findByPlaceholderText("Ask something...");
+      const input = await screen.findByPlaceholderText("Ask Nex anything...");
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       await user.type(input, "Tell me more");
       await user.click(screen.getByLabelText("Send message"));
@@ -105,16 +122,16 @@ describe("SlideOutChatPanel", () => {
       expect(input).toHaveValue("");
     });
 
-    it("shows 'thinking and searching...' indicator while waiting for response", async () => {
+    it("shows 'Nex is thinking...' indicator while waiting for response", async () => {
       mockFetchChatMessages.mockResolvedValue([]);
       mockSendChatMessage.mockReturnValue(new Promise(() => {}));
       renderPanel();
 
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      await user.type(await screen.findByPlaceholderText("Ask something..."), "Tell me more");
+      await user.type(await screen.findByPlaceholderText("Ask Nex anything..."), "Tell me more");
       await user.click(screen.getByLabelText("Send message"));
 
-      expect(screen.getByText(/thinking and searching/)).toBeInTheDocument();
+      expect(screen.getByText(/Nex is thinking/)).toBeInTheDocument();
     });
   });
 
@@ -128,7 +145,7 @@ describe("SlideOutChatPanel", () => {
       renderPanel();
 
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      await user.type(await screen.findByPlaceholderText("Ask something..."), "Tell me more");
+      await user.type(await screen.findByPlaceholderText("Ask Nex anything..."), "Tell me more");
       await user.click(screen.getByLabelText("Send message"));
 
       expect(screen.getByText("Tell me more")).toBeInTheDocument();
@@ -136,7 +153,7 @@ describe("SlideOutChatPanel", () => {
       await waitFor(() => {
         expect(screen.getByText("Here is more info.")).toBeInTheDocument();
       });
-      expect(screen.queryByText(/thinking and searching/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Nex is thinking/)).not.toBeInTheDocument();
     });
 
     it("removes optimistic message and shows error banner on failure", async () => {
@@ -145,7 +162,7 @@ describe("SlideOutChatPanel", () => {
       renderPanel();
 
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      await user.type(await screen.findByPlaceholderText("Ask something..."), "Tell me more");
+      await user.type(await screen.findByPlaceholderText("Ask Nex anything..."), "Tell me more");
       await user.click(screen.getByLabelText("Send message"));
 
       await waitFor(() => {
@@ -156,6 +173,24 @@ describe("SlideOutChatPanel", () => {
   });
 
   describe("retry behavior", () => {
+    it("retries history fetch when initial load fails", async () => {
+      mockFetchChatMessages
+        .mockRejectedValueOnce(new Error("History unavailable"))
+        .mockResolvedValueOnce(mockMessages);
+      renderPanel();
+
+      expect(await screen.findByText("History unavailable")).toBeInTheDocument();
+
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      await user.click(screen.getByText("Retry"));
+
+      await waitFor(() => {
+        expect(screen.getByText("Hello! Ask me anything.")).toBeInTheDocument();
+      });
+      expect(mockFetchChatMessages).toHaveBeenCalledTimes(2);
+      expect(screen.queryByText("History unavailable")).not.toBeInTheDocument();
+    });
+
     it("retries sending after an error", async () => {
       mockFetchChatMessages.mockResolvedValue([]);
       mockSendChatMessage
@@ -167,7 +202,7 @@ describe("SlideOutChatPanel", () => {
       renderPanel();
 
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      await user.type(await screen.findByPlaceholderText("Ask something..."), "Tell me more");
+      await user.type(await screen.findByPlaceholderText("Ask Nex anything..."), "Tell me more");
       await user.click(screen.getByLabelText("Send message"));
 
       await waitFor(() => {
@@ -193,10 +228,10 @@ describe("SlideOutChatPanel", () => {
       renderPanel();
 
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      await user.type(await screen.findByPlaceholderText("Ask something..."), "Tell me more");
+      await user.type(await screen.findByPlaceholderText("Ask Nex anything..."), "Tell me more");
       await user.click(screen.getByLabelText("Send message"));
 
-      expect(screen.getByText(/thinking and searching/)).toBeInTheDocument();
+      expect(screen.getByText(/Nex is thinking/)).toBeInTheDocument();
 
       act(() => {
         vi.advanceTimersByTime(20000);
@@ -218,10 +253,10 @@ describe("SlideOutChatPanel", () => {
       renderPanel();
 
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      await user.type(await screen.findByPlaceholderText("Ask something..."), "Tell me more");
+      await user.type(await screen.findByPlaceholderText("Ask Nex anything..."), "Tell me more");
       await user.click(screen.getByLabelText("Send message"));
 
-      expect(screen.getByText(/thinking and searching/)).toBeInTheDocument();
+      expect(screen.getByText(/Nex is thinking/)).toBeInTheDocument();
 
       act(() => {
         vi.advanceTimersByTime(20000);
@@ -232,6 +267,28 @@ describe("SlideOutChatPanel", () => {
     });
   });
 
+  describe("suggestion chips", () => {
+    it("sends message when a suggestion chip is tapped", async () => {
+      mockFetchChatMessages.mockResolvedValue([]);
+      mockSendChatMessage.mockResolvedValue({
+        user_message: { id: 10, role: "user", content: "Who is affected?", created_at: "2025-01-01T00:00:02Z" },
+        assistant_message: { id: 11, role: "assistant", content: "Several groups.", created_at: "2025-01-01T00:00:03Z" },
+      });
+      renderPanel({
+        suggestedPrompts: ["What are the main facts?", "Who is affected?", "What happens next?"],
+      });
+
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      await user.click(await screen.findByText("Who is affected?"));
+
+      await waitFor(() => {
+        expect(mockSendChatMessage).toHaveBeenCalledWith(42, "Who is affected?");
+      });
+      expect(screen.getByText("Several groups.")).toBeInTheDocument();
+      expect(screen.queryByText("Picked for this story")).not.toBeInTheDocument();
+    });
+  });
+
   describe("input behavior", () => {
     it("disables input and send button while loading", async () => {
       mockFetchChatMessages.mockResolvedValue([]);
@@ -239,10 +296,10 @@ describe("SlideOutChatPanel", () => {
       renderPanel();
 
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      await user.type(await screen.findByPlaceholderText("Ask something..."), "Tell me more");
+      await user.type(await screen.findByPlaceholderText("Ask Nex anything..."), "Tell me more");
       await user.click(screen.getByLabelText("Send message"));
 
-      expect(screen.getByPlaceholderText("Ask something...")).toBeDisabled();
+      expect(screen.getByPlaceholderText("Ask Nex anything...")).toBeDisabled();
       expect(screen.getByLabelText("Send message")).toBeDisabled();
     });
 
@@ -251,7 +308,7 @@ describe("SlideOutChatPanel", () => {
       renderPanel();
 
       await userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      await screen.findByPlaceholderText("Ask something...");
+      await screen.findByPlaceholderText("Ask Nex anything...");
       await screen.getByLabelText("Send message").click();
 
       expect(mockSendChatMessage).not.toHaveBeenCalled();
@@ -263,7 +320,7 @@ describe("SlideOutChatPanel", () => {
       renderPanel();
 
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      const input = await screen.findByPlaceholderText("Ask something...");
+      const input = await screen.findByPlaceholderText("Ask Nex anything...");
       await user.type(input, "Tell me more");
       await user.click(screen.getByLabelText("Send message"));
 
@@ -279,7 +336,7 @@ describe("SlideOutChatPanel", () => {
       renderPanel();
 
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      const input = await screen.findByPlaceholderText("Ask something...");
+      const input = await screen.findByPlaceholderText("Ask Nex anything...");
       await user.type(input, "Tell me more");
       await user.keyboard("{Enter}");
 
