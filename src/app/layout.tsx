@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NewsMine — News, distilled",
-  description: "InShorts-style news feed with AI-powered topic clustering.",
+  title: "NexPrepCA — Exam current affairs",
+  description:
+    "Daily UPSC and competitive exam current affairs with structured summaries, MCQs, and Nex AI tutor.",
 };
 
 export default function RootLayout({

@@ -16,7 +16,7 @@ export default function AuthCard({ title, subtitle, children, footer }: AuthCard
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <Link href="/" className="text-lg font-semibold text-foreground hover:text-accent transition-colors">
-            NewsMine
+            NexPrepCA
           </Link>
         </div>
         <div className="bg-surface border border-border-subtle rounded-2xl p-6 shadow-lg">

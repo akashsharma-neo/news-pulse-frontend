@@ -9,7 +9,7 @@ export default function AppHeader() {
   return (
     <div className="flex items-center justify-between px-3 py-2 border-b border-border-subtle bg-surface">
       <Link href="/" className="text-sm font-semibold text-foreground hover:text-accent transition-colors">
-        NewsMine
+        NexPrepCA
       </Link>
       <div className="flex items-center gap-2">
         {loading ? (
