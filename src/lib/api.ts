@@ -1,12 +1,7 @@
-/**
- * NewsPulse API client.
- *
- * Thin wrapper around fetch for the Django REST API.
- * All endpoints are typed with simple interfaces.
- */
-
 import { apiBaseUrl } from "@/lib/env";
-import { authHeaders, ensureAccessToken } from "@/lib/auth";
+import { getValidAccessToken, refreshTokens } from "@/lib/auth-api";
+import { clearTokens } from "@/lib/auth";
+import { getDeviceId } from "@/lib/device";
 
 const API_BASE = apiBaseUrl;
 
@@ -28,6 +23,7 @@ export interface TopicCluster {
   summary: string;
   source_names: string[];
   image_url: string;
+  suggested_prompts?: string[];
   created_at: string;
 }
 
@@ -47,6 +43,122 @@ export interface PaginatedResponse<T> {
   next: string | null;
   previous: string | null;
   results: T[];
+}
+
+export interface ChatMessage {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+
+export interface SendChatMessageResponse {
+  user_message: ChatMessage;
+  assistant_message: ChatMessage;
+  quota: ChatQuota;
+}
+
+export interface ChatQuota {
+  used: number;
+  limit: number;
+  remaining: number;
+  resets_at: string;
+}
+
+export class QuotaExceededError extends Error {
+  quota: ChatQuota;
+
+  constructor(quota: ChatQuota) {
+    super("Monthly AI chat limit reached.");
+    this.name = "QuotaExceededError";
+    this.quota = quota;
+  }
+}
+
+export interface SearchResult {
+  id: number;
+  cluster_id: number;
+  title: string;
+  url: string;
+  source_name: string;
+  category_slug: string;
+  published_at: string;
+  summary: string;
+  source_image_url: string;
+  headline: string;
+}
+
+export interface Suggestion {
+  text: string;
+  type: "keyword" | "title";
+}
+
+export interface TrendingItem {
+  text: string;
+  type: "tab" | "cluster";
+  slug?: string;
+  cluster_id?: number;
+}
+
+export class RateLimitedError extends Error {
+  constructor() {
+    super("Too many requests. Please slow down.");
+    this.name = "RateLimitedError";
+  }
+}
+
+/**
+ * Build headers common to all authenticated/identified requests.
+ * Sends JWT if logged in, always sends X-Device-ID for anonymous tracking.
+ */
+async function buildHeaders(): Promise<HeadersInit> {
+  const token = await getValidAccessToken();
+  const deviceId = await getDeviceId();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-Device-ID": deviceId,
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+function mergeFetchInit(headers: HeadersInit, init?: RequestInit): RequestInit {
+  return {
+    ...init,
+    headers: { ...headers, ...(init?.headers as Record<string, string>) },
+  };
+}
+
+/**
+ * Fetch with JWT + X-Device-ID. On 401, refresh once; if still unauthorized, clear
+ * stale tokens and retry anonymously (chat/quota are AllowAny with device id).
+ */
+async function fetchWithAuth(url: string, init?: RequestInit): Promise<Response> {
+  let res = await fetch(url, mergeFetchInit(await buildHeaders(), init));
+  if (res.status !== 401) return res;
+
+  const newToken = await refreshTokens();
+  if (newToken) {
+    res = await fetch(url, mergeFetchInit(await buildHeaders(), init));
+    if (res.status !== 401) return res;
+  }
+
+  clearTokens();
+  res = await fetch(url, mergeFetchInit(await buildHeaders(), init));
+  return res;
+}
+
+async function parseApiError(res: Response): Promise<string> {
+  try {
+    const data = await res.json();
+    if (data && typeof data.error === "string") return data.error;
+    if (typeof data.detail === "string") return data.detail;
+  } catch {
+    // ignore JSON parse errors
+  }
+  return `API error: ${res.status}`;
 }
 
 /**
@@ -113,38 +225,13 @@ export async function fetchArticles(
   return res.json();
 }
 
-export interface ChatMessage {
-  id: number;
-  role: "user" | "assistant";
-  content: string;
-  created_at: string;
-}
-
-export interface SendChatMessageResponse {
-  user_message: ChatMessage;
-  assistant_message: ChatMessage;
-}
-
-async function parseApiError(res: Response): Promise<string> {
-  try {
-    const data = await res.json();
-    if (data && typeof data.error === "string") return data.error;
-  } catch {
-    // ignore JSON parse errors
-  }
-  return `API error: ${res.status}`;
-}
-
 /**
  * Fetch chat messages for a cluster thread.
  * clusterId is the numeric TopicCluster PK.
  */
 export async function fetchChatMessages(clusterId: number): Promise<ChatMessage[]> {
-  const token = await ensureAccessToken();
   const params = new URLSearchParams({ cluster_id: String(clusterId) });
-  const res = await fetch(`${API_BASE}/messages/?${params}`, {
-    headers: authHeaders(token),
-  });
+  const res = await fetchWithAuth(`${API_BASE}/messages/?${params}`);
   if (!res.ok) throw new Error(await parseApiError(res));
   const data = await res.json();
   return Array.isArray(data) ? data : data.results ?? [];
@@ -158,12 +245,74 @@ export async function sendChatMessage(
   clusterId: number,
   content: string
 ): Promise<SendChatMessageResponse> {
-  const token = await ensureAccessToken();
-  const res = await fetch(`${API_BASE}/messages/send/`, {
+  const res = await fetchWithAuth(`${API_BASE}/messages/send/`, {
     method: "POST",
-    headers: authHeaders(token),
     body: JSON.stringify({ cluster_id: clusterId, content }),
   });
+
+  if (res.status === 429) {
+    const body = await res.json().catch(() => ({}));
+    if (body.code === "quota_exceeded" && body.quota) {
+      throw new QuotaExceededError(body.quota);
+    }
+    throw new RateLimitedError();
+  }
+
   if (!res.ok) throw new Error(await parseApiError(res));
+  return res.json();
+}
+
+/**
+ * Fetch current AI chat quota.
+ */
+export async function fetchChatQuota(): Promise<ChatQuota | null> {
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/quota/`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.ai_chat ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
+
+/**
+ * Full-text search across articles.
+ * GET /api/search/?q=<query>&tab=<slug>&page=1
+ */
+export async function fetchSearchResults(
+  query: string,
+  tab?: string,
+  page: number = 1
+): Promise<PaginatedResponse<SearchResult>> {
+  const params = new URLSearchParams({ q: query, page: String(page) });
+  if (tab) params.set("tab", tab);
+  const res = await fetch(`${API_BASE}/search/?${params}`);
+  if (!res.ok) throw new Error(`Search error: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Autocomplete suggestions for the search bar.
+ * GET /api/search/suggestions/?q=<query>
+ */
+export async function fetchSuggestions(query: string): Promise<Suggestion[]> {
+  const params = new URLSearchParams({ q: query });
+  const res = await fetch(`${API_BASE}/search/suggestions/?${params}`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+/**
+ * Trending topics — tab suggestions + popular clusters.
+ * GET /api/search/trending/
+ */
+export async function fetchTrending(): Promise<TrendingItem[]> {
+  const res = await fetch(`${API_BASE}/search/trending/`);
+  if (!res.ok) return [];
   return res.json();
 }

@@ -1,6 +1,6 @@
-# NewsPulse frontend
+# NexPrepCA frontend
 
-Next.js app for the NewsPulse tab feed (topic cluster digests from the Django API).
+Next.js web app for NexPrepCA (exam current affairs from the Django API).
 
 ## Open the correct folder in your editor
 
@@ -30,7 +30,7 @@ Use the same hostname as `NEWSMINE_DEV_HOST` in `news-pulse-backend/.env`. Run `
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000/api` (or `http://YourMac.local:8000/api`) |
 | `ALLOWED_DEV_ORIGINS` | Hostname only, for phone HMR (e.g. `YourMac.local`) |
 
-See `news-pulse-backend/docs/environments.md` for backend + Docker setup.
+See `news-pulse-backend/docs/tech-product-notes/environments.md` for backend + Docker setup.
 
 ## Production build
 

@@ -172,11 +172,15 @@ export default function ArticleDetailPage() {
 
         <div className="sticky bottom-4 mt-auto">
           <button
-            className="w-full bg-accent text-white font-medium py-4 rounded-2xl shadow-lg hover:opacity-90 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+            className="w-full bg-accent text-white font-medium py-4 rounded-2xl shadow-lg hover:opacity-90 transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-1"
             onClick={() => setIsChatOpen(true)}
           >
-            <span className="text-lg">💬</span>
-            Want more? Just Ask
+            <span className="text-base">Ask Nex</span>
+            {(cluster.suggested_prompts?.length ?? 0) >= 3 && (
+              <span className="text-xs font-normal text-white/80">
+                Questions ready for this story
+              </span>
+            )}
           </button>
         </div>
       </article>
@@ -204,6 +208,7 @@ export default function ArticleDetailPage() {
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         articleId={Number(params.id)}
+        suggestedPrompts={cluster.suggested_prompts}
       />
     </main>
   );

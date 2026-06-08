@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Providers from "@/components/Providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NewsPulse — News, distilled",
-  description: "InShorts-style news feed with AI-powered topic clustering.",
+  title: "NexPrepCA — Exam current affairs",
+  description:
+    "Daily UPSC and competitive exam current affairs with structured summaries, MCQs, and Nex AI tutor.",
 };
 
 export default function RootLayout({
@@ -28,7 +30,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
