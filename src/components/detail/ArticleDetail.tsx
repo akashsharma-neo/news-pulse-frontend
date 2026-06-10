@@ -35,6 +35,8 @@ export default function ArticleDetail({ id }: { id: number }) {
           markClusterRead(id).catch(() => undefined);
           addReadId(id);
         }
+      } catch {
+        // cluster stays null, error state renders below
       } finally {
         if (active) setLoading(false);
       }
