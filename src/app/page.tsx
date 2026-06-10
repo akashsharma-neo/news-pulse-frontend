@@ -1,11 +1,5 @@
-import TabFeedPage from "@/components/TabFeedPage";
+import AppGate from "@/components/AppGate";
 
-/**
- * Home page — today's exam CA feed.
- *
- * The feed page handles its own tab state, data fetching,
- * and infinite scroll internally.
- */
 export default function Home() {
-  return <TabFeedPage />;
+  return <AppGate />;
 }

@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   AuthUser,
+  completeOnboarding as apiCompleteOnboarding,
   exchangeFirebaseToken,
   fetchMe,
   login as apiLogin,
@@ -27,6 +28,8 @@ interface AuthContextValue {
   loading: boolean;
   isAuthenticated: boolean;
   isEmailVerified: boolean;
+  /** True once signed in but no exam track has been chosen yet. */
+  needsOnboarding: boolean;
   login: (email: string, password: string) => Promise<TokenResponse>;
   register: (payload: {
     email: string;
@@ -37,6 +40,10 @@ interface AuthContextValue {
   verifyEmailToken: (token: string) => Promise<TokenResponse>;
   resendVerificationEmail: (email: string) => Promise<void>;
   signInWithFirebaseIdToken: (idToken: string) => Promise<TokenResponse>;
+  completeOnboarding: (payload: {
+    exam_tracks?: string[];
+    language?: string;
+  }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
 }
@@ -104,6 +111,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data;
   }, []);
 
+  const completeOnboarding = useCallback(
+    async (payload: { exam_tracks?: string[]; language?: string }) => {
+      const updated = await apiCompleteOnboarding(payload);
+      setUser(updated);
+      return updated;
+    },
+    []
+  );
+
   const logout = useCallback(async () => {
     await apiLogout();
     setUser(null);
@@ -115,11 +131,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isAuthenticated: !!user && isLoggedIn(),
       isEmailVerified: user?.email_verified ?? false,
+      needsOnboarding: !!user && (user.exam_tracks?.length ?? 0) === 0,
       login,
       register,
       verifyEmailToken,
       resendVerificationEmail,
       signInWithFirebaseIdToken,
+      completeOnboarding,
       logout,
       refreshMe,
     }),
@@ -131,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyEmailToken,
       resendVerificationEmail,
       signInWithFirebaseIdToken,
+      completeOnboarding,
       logout,
       refreshMe,
     ]

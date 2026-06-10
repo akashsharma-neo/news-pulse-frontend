@@ -1,32 +1,71 @@
 @import "tailwindcss";
 
 /**
- * Default dark theme (NexPrepCA). Tokens align with the in-app feed/detail UI.
+ * NexPrep design tokens (PRD §UI/UX). Dark-mode-default "intelligence tool"
+ * aesthetic: near-black canvas, one warm accent (saffron), indigo reserved
+ * for AI Guide + Exam Angle. Token *names* are kept stable so older shared
+ * components (Toast, ShareSheet, …) inherit the new palette automatically.
  */
 :root {
-  --background: #121212;
-  --surface: #1e1e1e;
-  --surface-elevated: #252525;
-  --foreground: #ffffff;
-  --muted: #a0a0a0;
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --accent: #3E5641;
+  --background: #0d0e14; /* near-black canvas */
+  --surface: #1a1b25; /* card backgrounds */
+  --surface-elevated: #22232f; /* modals, bottom sheets */
+  --foreground: #f1f2f7; /* text primary */
+  --muted: #6b7280; /* text muted */
+  --border-subtle: #2e2f3e;
+  --accent: #f97316; /* saffron — CTAs, streaks, active states */
+  --accent-ai: #6366f1; /* indigo — AI Guide + Exam Angle only */
+  --success: #22c55e;
+  --danger: #ef4444;
+
+  /* Taxonomy / GS paper colors */
+  --gs1: #3b82f6; /* GS Paper I — blue */
+  --gs2: #a855f7; /* GS Paper II — purple */
+  --gs3: #f97316; /* GS Paper III — amber */
+  --gs4: #22c55e; /* GS Paper IV — green */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-elevated: var(--surface-elevated);
+  --color-surface-raised: var(--surface-elevated);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border-subtle: var(--border-subtle);
   --color-accent: var(--accent);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-accent-ai: var(--accent-ai);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-gs1: var(--gs1);
+  --color-gs2: var(--gs2);
+  --color-gs3: var(--gs3);
+  --color-gs4: var(--gs4);
+
+  --font-sans: var(--font-inter); /* body / reading */
+  --font-display: var(--font-sora); /* headlines */
+  --font-mono: var(--font-jetbrains); /* data / numbers */
 }
 
 body {
   color-scheme: dark;
   background-color: var(--background);
   color: var(--foreground);
+}
+
+/* Labels / tags: 11px, ALL CAPS, wide tracking (PRD type scale). */
+.label-caps {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+/* Hide scrollbars on horizontal chip rails while keeping scroll. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
