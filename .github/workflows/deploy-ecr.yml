@@ -14,7 +14,7 @@ on:
 
 concurrency:
   group: ecr-web-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
@@ -22,15 +22,13 @@ env:
 
 jobs:
   build-web:
-    runs-on: ubuntu-22.04
+    # Native arm64 on production EC2 — Next.js/Tailwind native binaries SIGILL under QEMU.
+    runs-on: [self-hosted, linux, ARM64]
     permissions:
       contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
