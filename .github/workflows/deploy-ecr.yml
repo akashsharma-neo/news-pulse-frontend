@@ -14,7 +14,7 @@ on:
 
 concurrency:
   group: ecr-web-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
@@ -24,6 +24,7 @@ jobs:
   build-web:
     # Native arm64 on production EC2 — Next.js/Tailwind native binaries SIGILL under QEMU.
     runs-on: [self-hosted, linux, ARM64]
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
@@ -70,6 +71,18 @@ jobs:
           echo "web_image=${REGISTRY}/${{ env.ECR_WEB_REPO }}:${TAG}" >> "$GITHUB_OUTPUT"
           echo "web_latest=${REGISTRY}/${{ env.ECR_WEB_REPO }}:latest" >> "$GITHUB_OUTPUT"
 
+      # t4g.small (2 GiB) + running Compose stack: npm ci needs extra headroom.
+      - name: Ensure swap for Docker build
+        run: |
+          if ! sudo swapon --show | grep -q '/swapfile'; then
+            sudo fallocate -l 2G /swapfile 2>/dev/null || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048 status=progress
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+            grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+          fi
+          free -h
+
       - name: Build and push frontend image (linux/arm64)
         uses: docker/build-push-action@v6
         with:
@@ -83,6 +96,8 @@ jobs:
             ${{ steps.meta.outputs.web_latest }}
           platforms: linux/arm64
           provenance: false
+          cache-from: type=local,src=/home/ssm-user/.buildx-cache-web
+          cache-to: type=local,dest=/home/ssm-user/.buildx-cache-web,mode=max
 
       - name: Summary
         run: |
