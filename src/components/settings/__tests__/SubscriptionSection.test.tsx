@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import UpgradeScreen from "@/components/upgrade/UpgradeScreen";
+import SubscriptionSection from "@/components/settings/SubscriptionSection";
 
 const MOCK_PLANS = {
   plans: [
@@ -63,22 +63,8 @@ vi.mock("@/lib/razorpay", () => ({
   openRazorpayCheckout: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: vi.fn() }),
-  usePathname: vi.fn(() => "/"),
-}));
-
-vi.mock("next/link", () => ({
-  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
-    <a href={href} {...rest}>
-      {children}
-    </a>
-  ),
-}));
-
 import { useAuth } from "@/contexts/AuthContext";
 import * as billingApi from "@/lib/billing-api";
-import * as razorpay from "@/lib/razorpay";
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -106,36 +92,35 @@ beforeEach(() => {
   });
 });
 
-describe("UpgradeScreen", () => {
+describe("SubscriptionSection", () => {
   it("shows loading spinner initially", () => {
-    render(<UpgradeScreen />);
+    render(<SubscriptionSection />);
     expect(screen.getByRole("status")).toBeInTheDocument();
   });
 
   it("renders plan list after loading", async () => {
-    render(<UpgradeScreen />);
+    render(<SubscriptionSection />);
     await waitFor(() => {
-      expect(screen.getByText("Go Premium")).toBeInTheDocument();
+      expect(screen.getByText("Monthly")).toBeInTheDocument();
     });
-    expect(screen.getByText("Monthly")).toBeInTheDocument();
     expect(screen.getByText("Annual")).toBeInTheDocument();
   });
 
   it("shows dev mode banner when no razorpay key", async () => {
-    render(<UpgradeScreen />);
+    render(<SubscriptionSection />);
     await waitFor(() => {
       expect(screen.getByText(/Dev mode/i)).toBeInTheDocument();
     });
   });
 
-  it("shows premium header when already premium", async () => {
+  it("shows premium status when already premium", async () => {
     vi.mocked(useAuth).mockReturnValue({
       user: MOCK_USER_PREMIUM,
       refreshMe: vi.fn(),
     } as any);
-    render(<UpgradeScreen />);
+    render(<SubscriptionSection />);
     await waitFor(() => {
-      expect(screen.getByText("Your plan")).toBeInTheDocument();
+      expect(screen.getByText("NexPrep Premium")).toBeInTheDocument();
     });
   });
 
@@ -144,7 +129,7 @@ describe("UpgradeScreen", () => {
       user: MOCK_USER_EXPIRED,
       refreshMe: vi.fn(),
     } as any);
-    render(<UpgradeScreen />);
+    render(<SubscriptionSection />);
     await waitFor(() => {
       expect(screen.getByText(/trial has ended/)).toBeInTheDocument();
     });
@@ -157,7 +142,7 @@ describe("UpgradeScreen", () => {
       refreshMe,
     } as any);
 
-    render(<UpgradeScreen />);
+    render(<SubscriptionSection />);
     await waitFor(() => {
       expect(screen.getByText("Monthly")).toBeInTheDocument();
     });
@@ -172,7 +157,7 @@ describe("UpgradeScreen", () => {
 
   it("shows error when checkout fails", async () => {
     vi.mocked(billingApi.createBillingOrder).mockRejectedValueOnce(new Error("Server error"));
-    render(<UpgradeScreen />);
+    render(<SubscriptionSection />);
     await waitFor(() => {
       expect(screen.getByText("Monthly")).toBeInTheDocument();
     });
@@ -183,33 +168,10 @@ describe("UpgradeScreen", () => {
     });
   });
 
-  it("shows Back to feed link for non-premium users", async () => {
-    render(<UpgradeScreen />);
+  it("has subscription anchor id", async () => {
+    render(<SubscriptionSection />);
     await waitFor(() => {
-      expect(screen.getByText(/Back to feed/)).toBeInTheDocument();
-    });
-  });
-
-  it("hides Back to feed link for premium users", async () => {
-    vi.mocked(useAuth).mockReturnValue({
-      user: MOCK_USER_PREMIUM,
-      refreshMe: vi.fn(),
-    } as any);
-    render(<UpgradeScreen />);
-    await waitFor(() => {
-      expect(screen.queryByText(/Back to feed/)).not.toBeInTheDocument();
-    });
-  });
-
-  it("disables current plan button for premium user on that plan", async () => {
-    vi.mocked(useAuth).mockReturnValue({
-      user: MOCK_USER_PREMIUM,
-      refreshMe: vi.fn(),
-    } as any);
-    render(<UpgradeScreen />);
-    await waitFor(() => {
-      const currentBtn = screen.getByText("Current plan");
-      expect(currentBtn.closest("button")).toBeDisabled();
+      expect(document.getElementById("subscription")).toBeInTheDocument();
     });
   });
 });

@@ -2,18 +2,15 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import UpgradeScreen from "@/components/upgrade/UpgradeScreen";
 import FullScreenSpinner from "@/components/FullScreenSpinner";
 
+/** Legacy URL — subscription lives under Settings. */
 export default function UpgradePage() {
-  const { loading, isAuthenticated } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) router.replace("/login");
-  }, [loading, isAuthenticated, router]);
+    router.replace("/settings#subscription");
+  }, [router]);
 
-  if (loading || !isAuthenticated) return <FullScreenSpinner />;
-  return <UpgradeScreen />;
+  return <FullScreenSpinner />;
 }

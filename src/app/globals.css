@@ -47,10 +47,31 @@
   --font-mono: var(--font-jetbrains); /* data / numbers */
 }
 
+html[data-theme="light"] {
+  --background: #f4f4f8;
+  --surface: #ffffff;
+  --surface-elevated: #ececf2;
+  --foreground: #0d0e14;
+  --muted: #6b7280;
+  --border-subtle: #d8d9e3;
+}
+
+html[data-accent="indigo"] {
+  --accent: #6366f1;
+}
+
+html[data-accent="emerald"] {
+  --accent: #22c55e;
+}
+
 body {
   color-scheme: dark;
   background-color: var(--background);
   color: var(--foreground);
+}
+
+html[data-theme="light"] body {
+  color-scheme: light;
 }
 
 /* Labels / tags: 11px, ALL CAPS, wide tracking (PRD type scale). */

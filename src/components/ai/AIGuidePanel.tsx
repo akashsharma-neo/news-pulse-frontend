@@ -181,7 +181,7 @@ export default function AIGuidePanel({
           <div className="px-5 pb-1">
             <p className="text-[12px] text-danger">{error}</p>
             {showUpgradeLink && (
-              <Link href="/upgrade" className="mt-1 inline-block text-[12px] font-medium text-accent">
+              <Link href="/settings#subscription" className="mt-1 inline-block text-[12px] font-medium text-accent">
                 View plans →
               </Link>
             )}

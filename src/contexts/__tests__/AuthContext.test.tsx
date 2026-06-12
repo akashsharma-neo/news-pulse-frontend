@@ -10,10 +10,15 @@ vi.mock("@/lib/auth-api", () => ({
   resendVerification: vi.fn(),
   exchangeFirebaseToken: vi.fn(),
   completeOnboarding: vi.fn(),
+  updateProfile: vi.fn(),
   logout: vi.fn(),
   fetchMe: vi.fn(),
   refreshTokens: vi.fn(),
   getValidAccessToken: vi.fn(),
+}));
+
+vi.mock("@/lib/firebase", () => ({
+  getFirebaseAuth: vi.fn(() => null),
 }));
 
 vi.mock("@/lib/auth", () => ({

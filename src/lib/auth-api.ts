@@ -124,8 +124,9 @@ export async function exchangeFirebaseToken(idToken: string): Promise<TokenRespo
   return data;
 }
 
-/** Onboarding: persist exam_tracks + language for the signed-in user. */
-export async function completeOnboarding(payload: {
+/** PATCH /auth/me/ — profile, onboarding, and settings fields. */
+export async function updateProfile(payload: {
+  name?: string;
   exam_tracks?: string[];
   language?: string;
 }): Promise<AuthUser> {
@@ -140,6 +141,14 @@ export async function completeOnboarding(payload: {
   });
   if (!res.ok) throw await parseError(res);
   return res.json();
+}
+
+/** Onboarding: persist exam_tracks + language for the signed-in user. */
+export async function completeOnboarding(payload: {
+  exam_tracks?: string[];
+  language?: string;
+}): Promise<AuthUser> {
+  return updateProfile(payload);
 }
 
 export async function refreshTokens(): Promise<string | null> {

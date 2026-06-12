@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-type Tab = "feed" | "duel" | "upgrade";
+type Tab = "feed" | "duel" | "settings";
 
 const TABS: { id: Tab; label: string; href: string; icon: React.ReactNode }[] = [
   {
@@ -35,16 +35,17 @@ const TABS: { id: Tab; label: string; href: string; icon: React.ReactNode }[] = 
     ),
   },
   {
-    id: "upgrade",
-    label: "Upgrade",
-    href: "/upgrade",
+    id: "settings",
+    label: "Account",
+    href: "/settings",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" aria-hidden>
+        <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.6" />
         <path
-          d="M13 2L5 13h6l-1 9 8-11h-6l1-9z"
+          d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6"
           stroke="currentColor"
           strokeWidth="1.6"
-          strokeLinejoin="round"
+          strokeLinecap="round"
         />
       </svg>
     ),
@@ -55,10 +56,10 @@ export default function BottomNav({ active }: { active?: Tab }) {
   const pathname = usePathname();
   const current: Tab =
     active ??
-    (pathname.startsWith("/duel")
-      ? "duel"
-      : pathname.startsWith("/upgrade")
-        ? "upgrade"
+    (pathname.startsWith("/settings")
+      ? "settings"
+      : pathname.startsWith("/duel")
+        ? "duel"
         : "feed");
 
   return (

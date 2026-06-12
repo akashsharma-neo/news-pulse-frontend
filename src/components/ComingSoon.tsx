@@ -9,7 +9,7 @@ export default function ComingSoon({
   title,
   blurb,
 }: {
-  active: "duel" | "upgrade";
+  active: "duel" | "feed";
   icon: string;
   title: string;
   blurb: string;

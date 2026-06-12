@@ -4,11 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchTracks, type ExamTrack } from "@/lib/api";
-
-const LANGUAGES = [
-  { code: "en", name: "English", native: "English" },
-  { code: "hi", name: "Hindi", native: "हिन्दी" },
-];
+import ExamTrackPicker from "./ExamTrackPicker";
+import LanguagePicker from "./LanguagePicker";
 
 export default function OnboardingFlow() {
   const { completeOnboarding } = useAuth();
@@ -62,34 +59,8 @@ export default function OnboardingFlow() {
             that apply.
           </p>
 
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            {tracks.map((t) => {
-              const active = selected.has(t.slug);
-              return (
-                <button
-                  key={t.slug}
-                  type="button"
-                  onClick={() => toggle(t.slug)}
-                  aria-pressed={active}
-                  className={`rounded-2xl border p-4 text-left transition-colors ${
-                    active
-                      ? "border-accent bg-surface-elevated"
-                      : "border-border-subtle bg-surface hover:border-white/15"
-                  }`}
-                >
-                  <span
-                    className="mb-3 block h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: t.color }}
-                  />
-                  <span className="block font-display text-[15px] font-semibold">
-                    {t.name}
-                  </span>
-                  <span className="mt-1 block text-[11px] leading-snug text-muted">
-                    {t.subtitle}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="mt-6">
+            <ExamTrackPicker tracks={tracks} selected={selected} onToggle={toggle} />
           </div>
 
           {error && <p className="mt-4 text-center text-[13px] text-danger">{error}</p>}
@@ -110,37 +81,8 @@ export default function OnboardingFlow() {
             Read your daily briefs and the AI Guide in your preferred language.
           </p>
 
-          <div className="mt-6 flex flex-col gap-3">
-            {LANGUAGES.map((l) => {
-              const active = language === l.code;
-              return (
-                <button
-                  key={l.code}
-                  type="button"
-                  onClick={() => setLanguage(l.code)}
-                  aria-pressed={active}
-                  className={`flex items-center justify-between rounded-2xl border px-4 py-4 transition-colors ${
-                    active
-                      ? "border-accent bg-surface-elevated"
-                      : "border-border-subtle bg-surface hover:border-white/15"
-                  }`}
-                >
-                  <span>
-                    <span className="block font-display text-[15px] font-semibold">
-                      {l.name}
-                    </span>
-                    <span className="text-[12px] text-muted">{l.native}</span>
-                  </span>
-                  <span
-                    className={`flex h-5 w-5 items-center justify-center rounded-full border ${
-                      active ? "border-accent" : "border-border-subtle"
-                    }`}
-                  >
-                    {active && <span className="h-2.5 w-2.5 rounded-full bg-accent" />}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="mt-6">
+            <LanguagePicker value={language} onChange={setLanguage} />
           </div>
 
           {error && <p className="mt-4 text-center text-[13px] text-danger">{error}</p>}

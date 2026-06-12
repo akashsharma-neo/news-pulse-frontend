@@ -26,7 +26,7 @@ export default function AppGate() {
 
   useEffect(() => {
     if (!loading && isAuthenticated && !needsOnboarding && user?.access_state === "expired") {
-      router.replace("/upgrade");
+      router.replace("/settings#subscription");
     }
   }, [loading, isAuthenticated, needsOnboarding, user?.access_state, router]);
 

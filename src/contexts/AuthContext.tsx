@@ -18,10 +18,13 @@ import {
   logout as apiLogout,
   register as apiRegister,
   resendVerification,
+  updateProfile as apiUpdateProfile,
   verifyEmail,
   type TokenResponse,
 } from "@/lib/auth-api";
 import { clearTokens, isLoggedIn } from "@/lib/auth";
+import { getFirebaseAuth } from "@/lib/firebase";
+import { signOut } from "firebase/auth";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -41,6 +44,11 @@ interface AuthContextValue {
   resendVerificationEmail: (email: string) => Promise<void>;
   signInWithFirebaseIdToken: (idToken: string) => Promise<TokenResponse>;
   completeOnboarding: (payload: {
+    exam_tracks?: string[];
+    language?: string;
+  }) => Promise<AuthUser>;
+  updateProfile: (payload: {
+    name?: string;
     exam_tracks?: string[];
     language?: string;
   }) => Promise<AuthUser>;
@@ -120,8 +128,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const updateProfile = useCallback(
+    async (payload: {
+      name?: string;
+      exam_tracks?: string[];
+      language?: string;
+    }) => {
+      const updated = await apiUpdateProfile(payload);
+      setUser(updated);
+      return updated;
+    },
+    []
+  );
+
   const logout = useCallback(async () => {
     await apiLogout();
+    const auth = getFirebaseAuth();
+    if (auth) {
+      await signOut(auth).catch(() => undefined);
+    }
     setUser(null);
   }, []);
 
@@ -138,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resendVerificationEmail,
       signInWithFirebaseIdToken,
       completeOnboarding,
+      updateProfile,
       logout,
       refreshMe,
     }),
@@ -150,6 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resendVerificationEmail,
       signInWithFirebaseIdToken,
       completeOnboarding,
+      updateProfile,
       logout,
       refreshMe,
     ]
