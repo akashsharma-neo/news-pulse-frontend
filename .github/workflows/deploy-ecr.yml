@@ -1,6 +1,5 @@
-# Build and push web image to ECR when changes land on main.
-# Private repos: Next.js native binaries SIGILL under QEMU, so we upload source to S3
-# and docker build runs natively on the ARM EC2 instance via SSM.
+# Build and push web image to ECR when changes land on main (e.g. merge PR dev → main).
+# Does not run on pushes to dev or other branches.
 name: Build and push web to ECR
 
 on:
@@ -15,10 +14,11 @@ on:
 
 concurrency:
   group: ecr-web-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  ECR_WEB_REPO: newspulse-web
 
 jobs:
   build-web:
@@ -29,6 +29,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -36,81 +42,52 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Validate deploy variables
+      - name: Ensure ECR repository exists
+        run: |
+          if ! aws ecr describe-repositories --repository-names "${{ env.ECR_WEB_REPO }}" --region "${{ env.AWS_REGION }}" 2>/dev/null; then
+            aws ecr create-repository \
+              --repository-name "${{ env.ECR_WEB_REPO }}" \
+              --region "${{ env.AWS_REGION }}" \
+              --image-scanning-configuration scanOnPush=true
+          fi
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag and API URL
+        id: meta
         env:
-          EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
-          WEB_BUILD_S3_URI: ${{ vars.WEB_BUILD_S3_URI }}
           NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
         run: |
-          if [[ -z "$EC2_INSTANCE_ID" ]]; then
-            echo "Set repository variable EC2_INSTANCE_ID (e.g. i-0a11e539620eeefac)." >&2
-            exit 1
-          fi
-          if [[ -z "$WEB_BUILD_S3_URI" ]]; then
-            echo "Set repository variable WEB_BUILD_S3_URI (e.g. s3://your-backup-bucket/web-builds)." >&2
-            exit 1
-          fi
           if [[ -z "$NEXT_PUBLIC_API_URL" ]]; then
-            echo "Set repository variable NEXT_PUBLIC_API_URL (e.g. https://api.yourdomain.com/api)." >&2
+            echo "Set repository variable NEXT_PUBLIC_API_URL (e.g. https://api.yourdomain.com/api)" >&2
             exit 1
           fi
-
-      - name: Set image tag
-        id: meta
-        run: |
           TAG="${{ github.event.inputs.image_tag }}"
           if [[ -z "$TAG" ]]; then TAG="${{ github.sha }}"; fi
+          REGISTRY="${{ steps.ecr.outputs.registry }}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "api_url=${NEXT_PUBLIC_API_URL}" >> "$GITHUB_OUTPUT"
+          echo "web_image=${REGISTRY}/${{ env.ECR_WEB_REPO }}:${TAG}" >> "$GITHUB_OUTPUT"
+          echo "web_latest=${REGISTRY}/${{ env.ECR_WEB_REPO }}:latest" >> "$GITHUB_OUTPUT"
 
-      - name: Upload source tarball to S3
-        env:
-          WEB_BUILD_S3_URI: ${{ vars.WEB_BUILD_S3_URI }}
-        run: |
-          TARBALL="/tmp/nexprep-web-${{ steps.meta.outputs.tag }}.tar.gz"
-          tar czf "$TARBALL" --exclude=node_modules --exclude=.next .
-          aws s3 cp "$TARBALL" "${WEB_BUILD_S3_URI%/}/${{ steps.meta.outputs.tag }}.tar.gz" --region "${{ env.AWS_REGION }}"
-
-      - name: Build on ARM EC2 via SSM
-        id: ssm
-        env:
-          EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
-        run: |
-          CMD_ID=$(aws ssm send-command \
-            --region "${{ env.AWS_REGION }}" \
-            --instance-ids "$EC2_INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --comment "NexPrep web ECR build ${{ steps.meta.outputs.tag }}" \
-            --parameters "commands=[\"/opt/newspulse/deploy/build-web-ecr.sh ${{ steps.meta.outputs.tag }}\"]" \
-            --output text \
-            --query 'Command.CommandId')
-          echo "command_id=${CMD_ID}" >> "$GITHUB_OUTPUT"
-          echo "SSM command: ${CMD_ID}"
-
-      - name: Wait for EC2 build
-        env:
-          EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
-        run: |
-          aws ssm wait command-executed \
-            --region "${{ env.AWS_REGION }}" \
-            --command-id "${{ steps.ssm.outputs.command_id }}" \
-            --instance-id "$EC2_INSTANCE_ID"
-          STATUS=$(aws ssm get-command-invocation \
-            --region "${{ env.AWS_REGION }}" \
-            --command-id "${{ steps.ssm.outputs.command_id }}" \
-            --instance-id "$EC2_INSTANCE_ID" \
-            --query 'Status' --output text)
-          echo "SSM status: ${STATUS}"
-          aws ssm get-command-invocation \
-            --region "${{ env.AWS_REGION }}" \
-            --command-id "${{ steps.ssm.outputs.command_id }}" \
-            --instance-id "$EC2_INSTANCE_ID" \
-            --query '[StandardOutputContent, StandardErrorContent]' --output text
-          if [[ "$STATUS" != "Success" ]]; then
-            exit 1
-          fi
+      - name: Build and push frontend image (linux/arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: |
+            NEXT_PUBLIC_NEWSMINE_ENV=prod
+            NEXT_PUBLIC_API_URL=${{ steps.meta.outputs.api_url }}
+          tags: |
+            ${{ steps.meta.outputs.web_image }}
+            ${{ steps.meta.outputs.web_latest }}
+          platforms: linux/arm64
+          provenance: false
 
       - name: Summary
         run: |
-          echo "### Web image built on EC2 and pushed" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Tag: \`${{ steps.meta.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Instance: \`${{ vars.EC2_INSTANCE_ID }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Web image pushed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ steps.meta.outputs.web_image }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ steps.meta.outputs.web_latest }}\`" >> "$GITHUB_STEP_SUMMARY"
