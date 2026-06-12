@@ -3,9 +3,11 @@ FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install dependencies based on the preferred package manager (npm)
-COPY package*.json ./
-RUN npm ci
+# t4g.small builds need a modest heap cap; BuildKit cache speeds re-runs on self-hosted EC2.
+COPY package.json package-lock.json ./
+ENV NODE_OPTIONS=--max-old-space-size=1536
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund --progress=false
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
@@ -17,6 +19,7 @@ ARG NEXT_PUBLIC_NEWSMINE_ENV=dev
 ARG NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api
 ENV NEXT_PUBLIC_NEWSMINE_ENV=$NEXT_PUBLIC_NEWSMINE_ENV
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NODE_OPTIONS=--max-old-space-size=1536
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more: https://nextjs.org/telemetry
