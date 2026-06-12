@@ -1,8 +1,20 @@
 "use client";
 
-import { AuthProvider } from "@/contexts/AuthContext";
+import { useEffect } from "react";
 import type { ReactNode } from "react";
 
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { getFirebaseAnalytics } from "@/lib/firebase";
+
 export default function Providers({ children }: { children: ReactNode }) {
-  return <AuthProvider>{children}</AuthProvider>;
+  useEffect(() => {
+    void getFirebaseAnalytics();
+  }, []);
+
+  return (
+    <ThemeProvider>
+      <AuthProvider>{children}</AuthProvider>
+    </ThemeProvider>
+  );
 }

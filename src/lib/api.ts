@@ -12,6 +12,18 @@ export interface Tab {
   order: number;
 }
 
+export interface ExamAngleRow {
+  label: string;
+  text: string;
+}
+
+export interface PYQ {
+  year: number;
+  exam: string;
+  question: string;
+  answer?: string;
+}
+
 export interface TopicCluster {
   id: number;
   topic_id: string;
@@ -24,7 +36,37 @@ export interface TopicCluster {
   source_names: string[];
   image_url: string;
   suggested_prompts?: string[];
+  // NexPrep article anatomy (PRD §2) — empty for unenriched clusters.
+  gs_paper_tag?: string;
+  exam_tags?: string[];
+  exam_targets?: string[];
+  why_in_news?: string;
+  key_facts?: string[];
+  static_anchors?: string[];
+  exam_angle?: ExamAngleRow[];
+  trend_context?: string;
+  pyqs?: PYQ[];
+  reading_minutes?: number;
+  language?: string;
   created_at: string;
+}
+
+export interface ExamTrack {
+  slug: string;
+  name: string;
+  subtitle: string;
+  color: string;
+  active: boolean;
+}
+
+export interface DailyProgress {
+  date: string;
+  total_articles_today: number;
+  articles_read_count: number;
+  completion_percentage: number;
+  minutes_used: number;
+  minutes_target: number;
+  streak_count: number;
 }
 
 export interface Article {
@@ -69,9 +111,16 @@ export class QuotaExceededError extends Error {
   quota: ChatQuota;
 
   constructor(quota: ChatQuota) {
-    super("Monthly AI chat limit reached.");
+    super("Daily AI Guide limit reached.");
     this.name = "QuotaExceededError";
     this.quota = quota;
+  }
+}
+
+export class SubscriptionExpiredError extends Error {
+  constructor() {
+    super("Your trial has ended. Upgrade to keep using the AI Guide.");
+    this.name = "SubscriptionExpiredError";
   }
 }
 
@@ -181,6 +230,24 @@ export async function fetchClusters(
 }
 
 /**
+ * Fetch the NexPrep daily feed — newest approved clusters across all tracks.
+ * Track filtering is applied client-side from `exam_targets` for v1.
+ */
+export async function fetchFeed(
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<TopicCluster>> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+    ordering: "-primary_article__published_at",
+  });
+  const res = await fetch(`${API_BASE}/clusters/?${params}`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+/**
  * Fetch a single cluster by ID.
  */
 export async function fetchCluster(id: number): Promise<TopicCluster> {
@@ -258,6 +325,13 @@ export async function sendChatMessage(
     throw new RateLimitedError();
   }
 
+  if (res.status === 403) {
+    const body = await res.json().catch(() => ({}));
+    if (body.code === "subscription_expired") {
+      throw new SubscriptionExpiredError();
+    }
+  }
+
   if (!res.ok) throw new Error(await parseApiError(res));
   return res.json();
 }
@@ -274,6 +348,51 @@ export async function fetchChatQuota(): Promise<ChatQuota | null> {
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// NexPrep — exam tracks, reading progress, bookmarks
+// ---------------------------------------------------------------------------
+
+/** Exam-track catalog (onboarding picker + Syllabus Tracks chips). */
+export async function fetchTracks(): Promise<ExamTrack[]> {
+  const res = await fetch(`${API_BASE}/tracks/`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+/** Today's reading progress + streak (minutes ring + N/M read bar). */
+export async function fetchTodayProgress(): Promise<DailyProgress | null> {
+  const res = await fetchWithAuth(`${API_BASE}/progress/today/`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export interface MarkReadResponse {
+  is_read: boolean;
+  progress: DailyProgress;
+  streak_count: number;
+}
+
+/** Mark a story read (swipe-right or finishing the detail view); idempotent. */
+export async function markClusterRead(clusterId: number): Promise<MarkReadResponse> {
+  const res = await fetchWithAuth(`${API_BASE}/progress/read/`, {
+    method: "POST",
+    body: JSON.stringify({ cluster_id: clusterId }),
+  });
+  if (!res.ok) throw new Error(await parseApiError(res));
+  return res.json();
+}
+
+/** Toggle bookmark on a story. Returns the new state. */
+export async function toggleBookmark(clusterId: number): Promise<boolean> {
+  const res = await fetchWithAuth(`${API_BASE}/progress/bookmark/`, {
+    method: "POST",
+    body: JSON.stringify({ cluster_id: clusterId }),
+  });
+  if (!res.ok) throw new Error(await parseApiError(res));
+  const data = await res.json();
+  return data.bookmarked;
 }
 
 // ---------------------------------------------------------------------------

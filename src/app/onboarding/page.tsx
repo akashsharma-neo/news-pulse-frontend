@@ -1,17 +1,12 @@
 "use client";
 
-import { use, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import ArticleDetail from "@/components/detail/ArticleDetail";
+import OnboardingFlow from "@/components/onboarding/OnboardingFlow";
 import FullScreenSpinner from "@/components/FullScreenSpinner";
 
-export default function Page({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = use(params);
+export default function OnboardingPage() {
   const { loading, isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -20,5 +15,5 @@ export default function Page({
   }, [loading, isAuthenticated, router]);
 
   if (loading || !isAuthenticated) return <FullScreenSpinner />;
-  return <ArticleDetail id={Number(id)} />;
+  return <OnboardingFlow />;
 }

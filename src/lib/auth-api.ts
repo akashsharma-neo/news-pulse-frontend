@@ -10,6 +10,15 @@ export interface AuthUser {
   email_verified?: boolean;
   phone_verified?: boolean;
   date_joined?: string;
+  // NexPrep onboarding + subscription state (PRD §1/§5)
+  exam_tracks?: string[];
+  language?: string;
+  trial_start_date?: string | null;
+  trial_ends_at?: string | null;
+  subscription_tier?: string;
+  plan_expiry?: string | null;
+  access_state?: "premium" | "trial" | "expired";
+  streak_count?: number;
   monthly_ai_chat_used?: number;
   monthly_ai_chat_limit?: number;
   monthly_ai_chat_remaining?: number;
@@ -113,6 +122,33 @@ export async function exchangeFirebaseToken(idToken: string): Promise<TokenRespo
   const data: TokenResponse = await res.json();
   setTokens(data.access, data.refresh);
   return data;
+}
+
+/** PATCH /auth/me/ — profile, onboarding, and settings fields. */
+export async function updateProfile(payload: {
+  name?: string;
+  exam_tracks?: string[];
+  language?: string;
+}): Promise<AuthUser> {
+  const token = await getValidAccessToken();
+  const res = await fetch(`${API_BASE}/auth/me/`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseError(res);
+  return res.json();
+}
+
+/** Onboarding: persist exam_tracks + language for the signed-in user. */
+export async function completeOnboarding(payload: {
+  exam_tracks?: string[];
+  language?: string;
+}): Promise<AuthUser> {
+  return updateProfile(payload);
 }
 
 export async function refreshTokens(): Promise<string | null> {
