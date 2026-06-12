@@ -50,15 +50,18 @@ describe("AIGuidePanel", () => {
     await waitFor(() => expect(screen.getByText("9 left today")).toBeInTheDocument());
   });
 
-  it("sends a chip prompt and renders the assistant reply", async () => {
+  it("sends a chip prompt and replaces the optimistic user message with the API reply", async () => {
     mockSend.mockResolvedValue({
-      assistant_message: { id: 99, role: "assistant", content: "Prelims framing…", created_at: "" },
+      user_message: { id: 98, role: "user", content: "Prelims angle?", created_at: "2026-06-08T12:00:00Z" },
+      assistant_message: { id: 99, role: "assistant", content: "Prelims framing…", created_at: "2026-06-08T12:00:01Z" },
       quota: { used: 2, limit: 10, remaining: 8, resets_at: null },
     });
     render(<AIGuidePanel cluster={makeCluster()} onClose={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: "Prelims angle?" }));
     expect(mockSend).toHaveBeenCalledWith(7, "Prelims angle?");
     await waitFor(() => expect(screen.getByText("Prelims framing…")).toBeInTheDocument());
+    const scroll = document.querySelector(".flex-1.space-y-3");
+    expect(scroll?.querySelectorAll(".justify-end").length).toBe(1);
   });
 
   it("invokes onClose from the close control", async () => {

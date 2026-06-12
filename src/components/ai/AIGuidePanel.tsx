@@ -72,9 +72,11 @@ export default function AIGuidePanel({
     setMessages((m) => [...m, optimistic]);
     setInput("");
     try {
-      const res = await sendChatMessage(cluster.id, text);
-      setMessages((m) => [...m, res.assistant_message]);
-      setQuota(res.quota);
+      const { user_message, assistant_message, quota } = await sendChatMessage(cluster.id, text);
+      setMessages((m) =>
+        m.filter((x) => x.id !== optimistic.id).concat([user_message, assistant_message])
+      );
+      setQuota(quota);
     } catch (err) {
       if (err instanceof QuotaExceededError) {
         setQuota(err.quota);
