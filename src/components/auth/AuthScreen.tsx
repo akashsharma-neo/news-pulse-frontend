@@ -10,8 +10,15 @@ import {
   signInWithPhoneNumber,
   signInWithPopup,
 } from "firebase/auth";
+import { FirebaseError } from "firebase/app";
 import { useAuth } from "@/contexts/AuthContext";
+import { friendlyAuthError } from "@/lib/firebase-auth-errors";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
+import {
+  displayIndianPhone,
+  formatIndianPhoneInput,
+  normalizeIndianPhone,
+} from "@/lib/phone";
 import NexLogo from "../brand/NexLogo";
 
 /**
@@ -64,7 +71,7 @@ export default function AuthScreen() {
       const idToken = await cred.user.getIdToken();
       await afterSignIn(idToken);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign-in failed.");
+      setError(friendlyAuthError(err, "social"));
       setBusy(null);
     }
   }
@@ -87,12 +94,15 @@ export default function AuthScreen() {
     try {
       const auth = getFirebaseAuth();
       if (!auth) throw new Error("Firebase is not configured.");
-      const normalized = phone.trim().startsWith("+") ? phone.trim() : `+${phone.trim()}`;
+      const normalized = normalizeIndianPhone(phone);
+      if (!/^\+91\d{10}$/.test(normalized)) {
+        throw new FirebaseError("auth/invalid-phone-number", "invalid");
+      }
       const verifier = await getVerifier();
       confirmationRef.current = await signInWithPhoneNumber(auth, normalized, verifier);
       setStep("code");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send the code.");
+      setError(friendlyAuthError(err, "phone-send"));
     } finally {
       setBusy(null);
     }
@@ -109,7 +119,7 @@ export default function AuthScreen() {
       const idToken = await cred.user.getIdToken();
       await afterSignIn(idToken);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid code.");
+      setError(friendlyAuthError(err, "phone-verify"));
       setBusy(null);
     }
   }
@@ -137,16 +147,25 @@ export default function AuthScreen() {
           <label className="label-caps block text-[10px] text-muted">
             Phone number
           </label>
-          <input
-            type="tel"
-            inputMode="tel"
-            placeholder="+91 98765 43210"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            disabled={!configured}
-            className="w-full rounded-xl border border-border-subtle bg-surface px-4 py-3 text-[15px] text-foreground placeholder:text-muted focus:border-accent focus:outline-none disabled:opacity-50"
-            required
-          />
+          <div className="flex overflow-hidden rounded-xl border border-border-subtle bg-surface focus-within:border-accent">
+            <span className="flex items-center border-r border-border-subtle px-4 text-[15px] text-muted">
+              +91
+            </span>
+            <input
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel-national"
+              placeholder="98765 43210"
+              value={phone}
+              onChange={(e) => setPhone(formatIndianPhoneInput(e.target.value))}
+              disabled={!configured}
+              className="min-w-0 flex-1 bg-transparent px-4 py-3 text-[15px] text-foreground placeholder:text-muted focus:outline-none disabled:opacity-50"
+              required
+              minLength={10}
+              maxLength={10}
+              pattern="\d{10}"
+            />
+          </div>
           <div ref={recaptchaRef} />
           <button
             type="submit"
@@ -158,7 +177,9 @@ export default function AuthScreen() {
         </form>
       ) : (
         <form onSubmit={handleVerifyCode} className="space-y-3">
-          <p className="text-[13px] text-muted">Enter the code sent to {phone}</p>
+          <p className="text-[13px] text-muted">
+            Enter the code sent to {displayIndianPhone(phone)}
+          </p>
           <input
             type="text"
             inputMode="numeric"

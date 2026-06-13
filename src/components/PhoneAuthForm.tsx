@@ -7,8 +7,15 @@ import {
   signInWithPhoneNumber,
 } from "firebase/auth";
 import { useAuth } from "@/contexts/AuthContext";
+import { friendlyAuthError } from "@/lib/firebase-auth-errors";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
+import {
+  displayIndianPhone,
+  formatIndianPhoneInput,
+  normalizeIndianPhone,
+} from "@/lib/phone";
 import { useRouter } from "next/navigation";
+import { FirebaseError } from "firebase/app";
 
 export default function PhoneAuthForm() {
   const { signInWithFirebaseIdToken } = useAuth();
@@ -58,12 +65,15 @@ export default function PhoneAuthForm() {
     try {
       const auth = getFirebaseAuth();
       if (!auth) throw new Error("Firebase is not configured.");
-      const normalized = phone.trim().startsWith("+") ? phone.trim() : `+${phone.trim()}`;
+      const normalized = normalizeIndianPhone(phone);
+      if (!/^\+91\d{10}$/.test(normalized)) {
+        throw new FirebaseError("auth/invalid-phone-number", "invalid");
+      }
       const verifier = await getVerifier();
       confirmationRef.current = await signInWithPhoneNumber(auth, normalized, verifier);
       setStep("code");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send verification code.");
+      setError(friendlyAuthError(err, "phone-send"));
     } finally {
       setLoading(false);
     }
@@ -81,7 +91,7 @@ export default function PhoneAuthForm() {
       await signInWithFirebaseIdToken(idToken);
       router.replace("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid verification code.");
+      setError(friendlyAuthError(err, "phone-verify"));
     } finally {
       setLoading(false);
     }
@@ -90,7 +100,9 @@ export default function PhoneAuthForm() {
   if (step === "code") {
     return (
       <form onSubmit={handleVerifyCode} className="space-y-3">
-        <p className="text-sm text-muted">Enter the code sent to {phone}</p>
+        <p className="text-sm text-muted">
+          Enter the code sent to {displayIndianPhone(phone)}
+        </p>
         <input
           type="text"
           inputMode="numeric"
@@ -126,14 +138,24 @@ export default function PhoneAuthForm() {
 
   return (
     <form onSubmit={handleSendCode} className="space-y-3">
-      <input
-        type="tel"
-        placeholder="+91 98765 43210"
-        value={phone}
-        onChange={(e) => setPhone(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg bg-surface-elevated border border-border-subtle text-foreground placeholder:text-muted text-sm"
-        required
-      />
+      <div className="flex overflow-hidden rounded-lg border border-border-subtle bg-surface-elevated focus-within:border-accent">
+        <span className="flex items-center border-r border-border-subtle px-3 text-sm text-muted">
+          +91
+        </span>
+        <input
+          type="tel"
+          inputMode="numeric"
+          autoComplete="tel-national"
+          placeholder="98765 43210"
+          value={phone}
+          onChange={(e) => setPhone(formatIndianPhoneInput(e.target.value))}
+          className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none"
+          required
+          minLength={10}
+          maxLength={10}
+          pattern="\d{10}"
+        />
+      </div>
       <div ref={recaptchaRef} id="recaptcha-container" />
       {error && <p className="text-sm text-red-400">{error}</p>}
       <button
