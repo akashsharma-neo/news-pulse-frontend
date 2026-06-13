@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   fetchFeed,
@@ -14,6 +15,7 @@ import {
 import { addReadId, getReadIds } from "@/lib/readState";
 import ProgressRing from "./ProgressRing";
 import ArticleCard from "./ArticleCard";
+import RecallPanel from "./RecallPanel";
 import BottomNav from "../nav/BottomNav";
 import NexLogo from "../brand/NexLogo";
 
@@ -40,6 +42,8 @@ function firstName(name?: string, email?: string): string {
 
 export default function DashboardFeed() {
   const { user } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [clusters, setClusters] = useState<TopicCluster[]>([]);
   const [tracks, setTracks] = useState<ExamTrack[]>([]);
   const [progress, setProgress] = useState<DailyProgress | null>(null);
@@ -47,8 +51,18 @@ export default function DashboardFeed() {
   // (AppGate shows a spinner during SSR/auth), so there's no hydration risk.
   const [readIds, setReadIds] = useState<Set<number>>(() => getReadIds());
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<"tracks" | "daily">("tracks");
+  const [mode, setMode] = useState<"tracks" | "recall">(() =>
+    searchParams.get("tab") === "recall" ? "recall" : "tracks"
+  );
   const [pickedTrack, setPickedTrack] = useState<string | null>(null);
+
+  const setModeAndUrl = useCallback(
+    (next: "tracks" | "recall") => {
+      setMode(next);
+      router.replace(next === "recall" ? "/?tab=recall" : "/", { scroll: false });
+    },
+    [router]
+  );
 
   const userTracks = useMemo(() => {
     const slugs = user?.exam_tracks ?? [];
@@ -92,12 +106,12 @@ export default function DashboardFeed() {
   }, []);
 
   const visible = useMemo(() => {
-    if (mode === "daily" || !activeTrack) return clusters;
+    if (!activeTrack) return clusters;
     return clusters.filter((c) => {
       const targets = c.exam_targets ?? [];
       return targets.length === 0 || targets.includes(activeTrack);
     });
-  }, [clusters, mode, activeTrack]);
+  }, [clusters, activeTrack]);
 
   const tierLabel = TIER_LABELS[user?.subscription_tier ?? "trial"] ?? "Trial";
   const primaryTrack = userTracks[0]?.name?.split(" ")[0] ?? "";
@@ -160,7 +174,7 @@ export default function DashboardFeed() {
       <div className="mb-3 flex rounded-xl bg-surface p-1">
         <button
           type="button"
-          onClick={() => setMode("tracks")}
+          onClick={() => setModeAndUrl("tracks")}
           className={`flex-1 rounded-lg py-1.5 text-[13px] font-medium transition-colors ${
             mode === "tracks" ? "bg-surface-elevated text-foreground" : "text-muted"
           }`}
@@ -169,12 +183,12 @@ export default function DashboardFeed() {
         </button>
         <button
           type="button"
-          onClick={() => setMode("daily")}
+          onClick={() => setModeAndUrl("recall")}
           className={`flex-1 rounded-lg py-1.5 text-[13px] font-medium transition-colors ${
-            mode === "daily" ? "bg-surface-elevated text-foreground" : "text-muted"
+            mode === "recall" ? "bg-surface-elevated text-foreground" : "text-muted"
           }`}
         >
-          {clusters.length} Daily Articles
+          Active Recall
         </button>
       </div>
 
@@ -198,32 +212,38 @@ export default function DashboardFeed() {
         </div>
       )}
 
-      {/* Feed */}
-      <div className="flex flex-col gap-3">
-        {loading ? (
-          <FeedSkeleton />
-        ) : visible.length === 0 ? (
-          <p className="py-12 text-center text-sm text-muted">
-            No stories yet for this track. Check back after the next batch.
-          </p>
-        ) : (
-          visible.map((c) => (
-            <ArticleCard
-              key={c.id}
-              cluster={c}
-              isRead={readIds.has(c.id)}
-              onMarkRead={handleMarkRead}
-            />
-          ))
-        )}
-      </div>
+      {mode === "recall" ? (
+        <RecallPanel />
+      ) : (
+        <>
+          {/* Feed */}
+          <div className="flex flex-col gap-3">
+            {loading ? (
+              <FeedSkeleton />
+            ) : visible.length === 0 ? (
+              <p className="py-12 text-center text-sm text-muted">
+                No stories yet for this track. Check back after the next batch.
+              </p>
+            ) : (
+              visible.map((c) => (
+                <ArticleCard
+                  key={c.id}
+                  cluster={c}
+                  isRead={readIds.has(c.id)}
+                  onMarkRead={handleMarkRead}
+                />
+              ))
+            )}
+          </div>
 
-      {/* Batch banner */}
-      <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-border-subtle bg-surface px-3 py-2.5 text-[12px] text-muted">
-        <span aria-hidden>🔔</span>
-        Tomorrow&apos;s batch drops at{" "}
-        <span className="font-mono text-foreground">6:00 AM</span>
-      </div>
+          {/* Batch banner */}
+          <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-border-subtle bg-surface px-3 py-2.5 text-[12px] text-muted">
+            <span aria-hidden>🔔</span>
+            Tomorrow&apos;s batch drops at{" "}
+            <span className="font-mono text-foreground">6:00 AM</span>
+          </div>
+        </>
+      )}
 
       <BottomNav active="feed" />
     </div>

@@ -86,10 +86,18 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+vi.mock("next/navigation", () => ({
+  useSearchParams: vi.fn(() => new URLSearchParams()),
+  useRouter: vi.fn(() => ({ replace: vi.fn() })),
+  usePathname: vi.fn(() => "/"),
+}));
+
 import * as api from "@/lib/api";
+import { useSearchParams } from "next/navigation";
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(useSearchParams).mockReturnValue(new URLSearchParams() as ReturnType<typeof useSearchParams>);
   vi.mocked(api.fetchFeed).mockResolvedValue({
     count: 3,
     results: mockClusters,
@@ -179,18 +187,30 @@ describe("DashboardFeed", () => {
     expect(screen.queryByText("RBI Rate Hike 2026")).not.toBeInTheDocument();
   });
 
-  it("Daily Articles mode shows all clusters regardless of track", async () => {
+  it("Active Recall tab shows placeholder content", async () => {
     render(<DashboardFeed />);
     await waitFor(() => {
-      expect(screen.getByText(/3 Daily Articles/)).toBeInTheDocument();
+      expect(screen.getByText("Active Recall")).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByText(/3 Daily Articles/));
+    await userEvent.click(screen.getByRole("button", { name: "Active Recall" }));
 
     await waitFor(() => {
-      expect(screen.getByText("RBI Rate Hike 2026")).toBeInTheDocument();
-      expect(screen.getByText("Banking Reform Bill")).toBeInTheDocument();
-      expect(screen.getByText("General News Without Track")).toBeInTheDocument();
+      expect(screen.getByText("Coming soon")).toBeInTheDocument();
+      expect(
+        screen.getByText(/Spaced-repetition MCQs from the stories you read 1, 3 and 7 days ago/)
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText("RBI Rate Hike 2026")).not.toBeInTheDocument();
+  });
+
+  it("opens Active Recall tab when tab=recall is in the URL", async () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams("tab=recall") as ReturnType<typeof useSearchParams>
+    );
+    render(<DashboardFeed />);
+    await waitFor(() => {
+      expect(screen.getByText("Coming soon")).toBeInTheDocument();
     });
   });
 

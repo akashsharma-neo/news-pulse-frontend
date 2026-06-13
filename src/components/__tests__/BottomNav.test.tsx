@@ -22,11 +22,11 @@ beforeEach(() => {
 });
 
 describe("BottomNav", () => {
-  it("renders all three tabs", () => {
+  it("renders Feed and Account tabs", () => {
     render(<BottomNav />);
     expect(screen.getByText("Feed")).toBeInTheDocument();
-    expect(screen.getByText("Daily Duel")).toBeInTheDocument();
     expect(screen.getByText("Account")).toBeInTheDocument();
+    expect(screen.queryByText("Daily Duel")).not.toBeInTheDocument();
     expect(screen.queryByText("Upgrade")).not.toBeInTheDocument();
   });
 
@@ -34,13 +34,6 @@ describe("BottomNav", () => {
     render(<BottomNav />);
     const feedLink = screen.getByText("Feed").closest("a")!;
     expect(feedLink).toHaveAttribute("aria-current", "page");
-  });
-
-  it("marks Duel as active when pathname starts with /duel", () => {
-    vi.mocked(usePathname).mockReturnValue("/duel");
-    render(<BottomNav />);
-    expect(screen.getByText("Daily Duel").closest("a")).toHaveAttribute("aria-current", "page");
-    expect(screen.getByText("Feed").closest("a")).not.toHaveAttribute("aria-current");
   });
 
   it("marks Account as active when pathname starts with /settings", () => {
@@ -51,15 +44,14 @@ describe("BottomNav", () => {
 
   it("uses the active prop when provided, ignoring pathname", () => {
     vi.mocked(usePathname).mockReturnValue("/");
-    render(<BottomNav active="duel" />);
-    expect(screen.getByText("Daily Duel").closest("a")).toHaveAttribute("aria-current", "page");
+    render(<BottomNav active="settings" />);
+    expect(screen.getByText("Account").closest("a")).toHaveAttribute("aria-current", "page");
     expect(screen.getByText("Feed").closest("a")).not.toHaveAttribute("aria-current");
   });
 
   it("has correct hrefs", () => {
     render(<BottomNav />);
     expect(screen.getByText("Feed").closest("a")).toHaveAttribute("href", "/");
-    expect(screen.getByText("Daily Duel").closest("a")).toHaveAttribute("href", "/duel");
     expect(screen.getByText("Account").closest("a")).toHaveAttribute("href", "/settings");
   });
 });
